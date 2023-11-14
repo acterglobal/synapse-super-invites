@@ -1,6 +1,6 @@
 # Super Inivitation flow for Synapse Matrix Homeserver
 
-Provides extended support for users to invite other users to rooms via an inventation token
+Provides extended support for users to invite other users to rooms via an invitation token
 
 ## Installation
 
