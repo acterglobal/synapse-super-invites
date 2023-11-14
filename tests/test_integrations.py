@@ -1,4 +1,4 @@
-from unittest import IsolatedAsyncioTestCase
+from unittest import TestCase
 from synapse.types import JsonDict
 from matrix_synapse_testutils.unittest import HomeserverTestCase, override_config
 
@@ -16,7 +16,6 @@ class SuperInviteHomeserverTestCase(HomeserverTestCase):
         channel = self.make_request("POST", " /_matrix/client/v3/createRoom", access_token=m_access_token, body=body)
         self.assertEqual(channel.code, 200, msg=channel.result)
         return channel.json_body["room_id"]
-
 
 
 class SimpleInviteTests(SuperInviteHomeserverTestCase):
