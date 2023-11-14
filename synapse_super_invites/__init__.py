@@ -1,11 +1,13 @@
 from typing import Any, Dict
 
 import attr
+from synapse.config import ConfigError
 from synapse.module_api import ModuleApi
 
 
-@attr.s(auto_attribs=True, frozen=True)
+@attr.define
 class SynapseSuperInvitesConfig:
+    sql_url: str
     generate_registration_token : bool = attr.field(default = True)
 
 
@@ -17,4 +19,7 @@ class SynapseSuperInvites:
 
     @staticmethod
     def parse_config(config: Dict[str, Any]) -> SynapseSuperInvitesConfig:
-        return SynapseSuperInvitesConfig(**config)
+        try:
+            return SynapseSuperInvitesConfig(**config)
+        except TypeError as e:
+            raise ConfigError(e)

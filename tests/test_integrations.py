@@ -1,12 +1,14 @@
 from unittest import TestCase
 from synapse.types import JsonDict
 from matrix_synapse_testutils.unittest import HomeserverTestCase, override_config
+from .test_config import DEFAULT_CONFIG as DEFAULT_MODULE_CFG
 
 DEFAULT_CONFIG = {"modules": [{
         "module": "synapse_super_invites.SynapseSuperInvites",
-        "config": {}
+        "config": DEFAULT_MODULE_CFG
     }]
 }
+
 
 # Some more local helpers
 class SuperInviteHomeserverTestCase(HomeserverTestCase):
