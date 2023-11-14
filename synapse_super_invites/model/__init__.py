@@ -30,7 +30,6 @@ class Token(Base):
     rooms: Mapped[List['Room']] = relationship(
         secondary=token_rooms, back_populates="tokens"
     )
-
     # meta
     created_at = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at = mapped_column(
@@ -66,7 +65,7 @@ class Accepted(Base):
     user: Mapped[str] = mapped_column(String(255))
 
     token_id = mapped_column(ForeignKey("tokens.token"))
-    token = relationship("Token", back_populates="accepted")
+    token = relationship("Token") #, back_populates="accepted")
 
     # meta
     created_at = mapped_column(DateTime(timezone=True), server_default=func.now())

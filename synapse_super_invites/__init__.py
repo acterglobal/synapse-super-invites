@@ -4,36 +4,31 @@ import attr
 import os
 from synapse.config import ConfigError
 from synapse.module_api import ModuleApi
+from twisted.web.static import File
 
 import alembic.config
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from .config import run_alembic, SynapseSuperInvitesConfig
 from .model import Token
+from .resource import TokensPage
 
-def do_upgrade(revision, context):
-    return alembic_script._upgrade_revs(script.get_heads(), revision)
-
-def run_alembic(sql_url):
-    from alembic.config import Config
-    from alembic import command, autogenerate
-    from alembic.script import ScriptDirectory
-    from alembic.runtime.environment import EnvironmentContext
-
-    alembic_cfg = Config()
-    alembic_cfg.set_main_option("script_location", os.path.join(os.path.dirname(os.path.realpath(__file__)), "migration"))
-    alembic_cfg.set_main_option("sqlalchemy.url", sql_url)
-    alembic.command.upgrade(alembic_cfg, 'head')
-
-@attr.define
-class SynapseSuperInvitesConfig:
-    sql_url: str
-    generate_registration_token : bool = attr.field(default = True)
-
+PKG_DIR = os.path.dirname(os.path.realpath(__file__)) 
 
 class SynapseSuperInvites:
     def __init__(self, config: SynapseSuperInvitesConfig, api: ModuleApi):
         # Keep a reference to the config and Module API
-        run_alembic(config.sql_url)
+        engine = create_engine(config.sql_url)
+        run_alembic(engine)
+        self._sessions = sessionmaker(engine)
         self._api = api
         self._config = config
+        self.setup()
+
+    def setup(self):
+        self._api.register_web_resource('/_synapse/client/super_invites/static', File(os.path.join(PKG_DIR, "static")))
+        self._api.register_web_resource('/_synapse/client/super_invites/tokens', TokensPage(self._config, self._api, self._sessions))
+        
 
     @staticmethod
     def parse_config(config: Dict[str, Any]) -> SynapseSuperInvitesConfig:

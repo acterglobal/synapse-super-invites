@@ -48,29 +48,32 @@ def run_migrations_offline() -> None:
     with context.begin_transaction():
         context.run_migrations()
 
+def run_migrations_online():
+    connectable = config.attributes.get('connection', None)
 
-def run_migrations_online() -> None:
-    """Run migrations in 'online' mode.
+    if connectable is None:
+        # only create Engine if we don't have a Connection
+        # from the outside
+        connectable = engine_from_config(
+            config.get_section(config.config_ini_section),
+            prefix='sqlalchemy.',
+            poolclass=pool.NullPool)
 
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
+        with connectable.connect() as connection:
+            context.configure(
+                connection=connection, target_metadata=target_metadata
+            )
 
-    """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
-
-    with connectable.connect() as connection:
+            with context.begin_transaction():
+                context.run_migrations()
+    else:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connectable,
+            target_metadata=target_metadata
         )
 
         with context.begin_transaction():
             context.run_migrations()
-
-
 if context.is_offline_mode():
     run_migrations_offline()
 else:
