@@ -22,11 +22,13 @@ def can_edit_token(token: Token, requester: Requester) -> bool:
     return token.owner == str(requester.user)
 
 def serialize_token(token: Token) -> JsonDict:
-    return {"token" : token.token, "create_dm": token.create_dm, "rooms": list(map(lambda r: r.nameOrAlias, token.rooms))}
+    return {"token" : token.token, "create_dm": token.create_dm, "accepted_count": len(token.accepted), "rooms": list(map(lambda r: r.nameOrAlias, token.rooms))}
 
 
+def token_query(token_id: str):
+    return select(Token).where(Token.token==token_id)
 
-class TokensResource(DirectServeJsonResource):
+class SuperInviteResourceBase(DirectServeJsonResource):
 
     def __init__(self, config: SynapseSuperInvitesConfig, api: ModuleApi, sessions: sessionmaker):
         super().__init__()
@@ -34,8 +36,28 @@ class TokensResource(DirectServeJsonResource):
         self.api = api
         self.db = sessions
 
+
+class TokensResource(SuperInviteResourceBase):
+
     async def _async_render_GET(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
         requester = await self.api.get_user_by_req(request, allow_guest=False)
+
+        token_id = parse_string(request, "token")
+        # query for a specific token
+        if token_id:
+            token_data = None
+            with self.db.begin() as session:
+                token = session.scalar(token_query(token_id))
+                if not token:
+                    return 404, {"error": "Token not found", "errcode": "NOT_FOUND"}
+                if not can_edit_token(token, requester):
+                    return 403, {"error": "Permission denied", "errcode": ""}
+
+                token_data = serialize_token(token)
+
+            return 200, {"token": token_data }
+                
+        # by default, we list all tokens
         tokens = []
         with self.db.begin() as session:
             for token in session.scalars(select(Token).where(Token.owner==str(requester.user))).all():
@@ -77,13 +99,7 @@ class TokensResource(DirectServeJsonResource):
         return 200, {"token": token_data}
         
 
-class RedeemResource(DirectServeJsonResource):
-
-    def __init__(self, config: SynapseSuperInvitesConfig, api: ModuleApi, sessions: sessionmaker):
-        super().__init__()
-        self.config = config
-        self.api = api
-        self.db = sessions
+class RedeemResource(SuperInviteResourceBase):
 
     async def _async_render_GET(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
         requester = await self.api.get_user_by_req(request, allow_guest=False)
@@ -91,7 +107,7 @@ class RedeemResource(DirectServeJsonResource):
         token_id = parse_string(request, "token", required=True)
         invited_rooms = []
         with self.db.begin() as session:
-            token = session.scalar(select(Token).where(Token.token==token_id))
+            token = session.scalar(token_query(token_id))
             if not token:
                 return 404, {"error": "Token not found", "errcode": "NOT_FOUND"}
 

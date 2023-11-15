@@ -80,7 +80,7 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         channel = self.make_request("POST", "/_synapse/client/super_invites/tokens", access_token=m_access_token, content={"rooms": rooms_to_invite })
         self.assertEqual(channel.code, 200, msg=channel.result)
         token_data = channel.json_body["token"]
-        self.assertListEqual(token_data['rooms'], rooms_to_invite)
+        self.assertCountEqual(token_data['rooms'], rooms_to_invite)
         self.assertEqual(token_data['create_dm'], False)
         token = token_data["token"]
 
@@ -94,7 +94,7 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         self.assertEqual(channel.code, 200, msg=channel.result)
         token_data = channel.json_body["token"]
         self.assertEqual(token_data['token'], token)
-        self.assertListEqual(token_data['rooms'], rooms_to_invite)
+        self.assertCountEqual(token_data['rooms'], rooms_to_invite)
         self.assertEqual(token_data['create_dm'], True)
 
 
@@ -122,7 +122,8 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         channel = self.make_request("POST", "/_synapse/client/super_invites/tokens", access_token=m_access_token, content={"rooms": rooms_to_invite })
         self.assertEqual(channel.code, 200, msg=channel.result)
         token_data = channel.json_body["token"]
-        self.assertListEqual(token_data['rooms'], rooms_to_invite)
+        self.assertCountEqual(token_data['rooms'], rooms_to_invite)
+        self.assertEquals(token_data['accepted_count'], 0)
         token = token_data["token"]
 
         # redeem the new token
@@ -132,19 +133,20 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
 
         channel = self.make_request("GET", "/_synapse/client/super_invites/redeem?token={token}".format(token=token), access_token=f_access_token)
         self.assertEqual(channel.code, 200, msg=channel.result)
-        self.assertEqual(channel.json_body["rooms"], rooms_to_invite)
+        # list the rooms we were invited to
+        self.assertCountEqual(channel.json_body["rooms"], rooms_to_invite)
 
         # we see it has been redeemed
-        channel = self.make_request("POST", "/_synapse/client/super_invites/tokens?token={token}".format(token=token), access_token=m_access_token)
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens?token={token}".format(token=token), access_token=m_access_token)
         self.assertEqual(channel.code, 200, msg=channel.result)
         token_data = channel.json_body["token"]
-        self.assertListEqual(token_data['redeemed_count'], 1)
+        self.assertEquals(token_data['accepted_count'], 1)
 
         # and flit was invited to these, too:
 
         channel = self.make_request("GET", "/_matrix/sync", access_token=f_access_token)
         self.assertEqual(channel.code, 200, msg=channel.result)
-        self.assertEqual(channel.json_body["rooms"]["invited"].keys(), rooms_to_invite)
+        self.assertCountEqual(channel.json_body["rooms"]["invited"].keys(), rooms_to_invite)
 
 
     @override_config(DEFAULT_CONFIG)
