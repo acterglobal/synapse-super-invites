@@ -199,6 +199,10 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         self.assertTrue(token_data['create_dm'])
         token = token_data["token"]
 
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(len(channel.json_body["tokens"]), 1)
+
         # redeem the new token
 
         f_id = self.register_user("flit", "flit")
@@ -250,6 +254,10 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         self.assertTrue(token_data['create_dm'])
         token = token_data["token"]
 
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(len(channel.json_body["tokens"]), 1)
+
         # redeem the new token
 
         f_id = self.register_user("flit", "flit")
@@ -297,6 +305,10 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         self.assertTrue(token_data['create_dm'])
         token = token_data["token"]
 
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(len(channel.json_body["tokens"]), 1)
+
         # redeem the new token
         f_id = self.register_user("flit", "flit")
         f_access_token = self.login("flit", "flit")
@@ -316,4 +328,75 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         channel = self.make_request("POST", "/_synapse/client/super_invites/redeem?token={token}".format(token=token), access_token=f_access_token)
         self.assertEqual(channel.code, 400, msg=channel.result)
 
+    @override_config(DEFAULT_CONFIG)
+    def test_deletion(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
 
+        # this is our new backend.
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["tokens"], [])
+
+        # create a new one for testing.
+        channel = self.make_request("POST", "/_synapse/client/super_invites/tokens", access_token=m_access_token, content={"rooms": [], "create_dm":  True})
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        token_data = channel.json_body["token"]
+        self.assertEquals(token_data['accepted_count'], 0)
+        self.assertTrue(token_data['create_dm'])
+        token = token_data["token"]
+
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(len(channel.json_body["tokens"]), 1)
+
+        # we can access it
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens?token={token}".format(token=token), access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+
+        # delete it
+        channel = self.make_request("DELETE", "/_synapse/client/super_invites/tokens?token={token}".format(token=token), access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+
+        # we can't access it
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens?token={token}".format(token=token), access_token=m_access_token)
+        self.assertEqual(channel.code, 404, msg=channel.result)
+
+        # and it doesn't show up in the user listing
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["tokens"], [])
+
+        # redeem the new token
+        f_id = self.register_user("flit", "flit")
+        f_access_token = self.login("flit", "flit")
+
+        # and it can't be redeemed
+        channel = self.make_request("POST", "/_synapse/client/super_invites/redeem?token={token}".format(token=token), access_token=f_access_token)
+        self.assertEqual(channel.code, 404, msg=channel.result)
+
+    @override_config(DEFAULT_CONFIG)
+    def test_cant_redeem_my_own(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["tokens"], [])
+
+        # create a new one for testing.
+        channel = self.make_request("POST", "/_synapse/client/super_invites/tokens", access_token=m_access_token, content={"rooms": [], "create_dm":  True})
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        token_data = channel.json_body["token"]
+        self.assertEquals(token_data['accepted_count'], 0)
+        self.assertTrue(token_data['create_dm'])
+        token = token_data["token"]
+
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(len(channel.json_body["tokens"]), 1)
+
+        # and it can't be redeemed
+        channel = self.make_request("POST", "/_synapse/client/super_invites/redeem?token={token}".format(token=token), access_token=m_access_token)
+        self.assertEqual(channel.code, 400, msg=channel.result)

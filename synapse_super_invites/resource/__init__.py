@@ -15,7 +15,7 @@ from synapse_super_invites.model import Token, Room, Accepted
 
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import select, insert, update
+from sqlalchemy import select, insert, update, func
 
 def can_edit_token(token: Token, requester: Requester) -> bool:
     # kept outside so we can make it more sophisticated later
@@ -26,7 +26,7 @@ def serialize_token(token: Token) -> JsonDict:
 
 
 def token_query(token_id: str):
-    return select(Token).where(Token.token==token_id)
+    return select(Token).where(Token.token==token_id, Token.deleted_at == None)
 
 class SuperInviteResourceBase(DirectServeJsonResource):
 
@@ -38,6 +38,25 @@ class SuperInviteResourceBase(DirectServeJsonResource):
 
 
 class TokensResource(SuperInviteResourceBase):
+
+    async def _async_render_DELETE(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
+        requester = await self.api.get_user_by_req(request, allow_guest=False)
+
+        token_id = parse_string(request, "token", required=True)
+        # query for a specific token
+        token_data = None
+        with self.db.begin() as session:
+            token = session.scalar(token_query(token_id))
+            if not token:
+                return 404, {"error": "Token not found", "errcode": "NOT_FOUND"}
+            if not can_edit_token(token, requester):
+                return 403, {"error": "Permission denied", "errcode": ""}
+
+            token.deleted_at = func.now()
+            session.flush()
+
+        return 200, { }
+
 
     async def _async_render_GET(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
         requester = await self.api.get_user_by_req(request, allow_guest=False)
@@ -60,8 +79,8 @@ class TokensResource(SuperInviteResourceBase):
         # by default, we list all tokens
         tokens = []
         with self.db.begin() as session:
-            for token in session.scalars(select(Token).where(Token.owner==str(requester.user))).all():
-                tokens.push(serialize_token(token))
+            for token in session.scalars(select(Token).where(Token.owner==str(requester.user), Token.deleted_at == None)).all():
+                tokens.append(serialize_token(token))
         return 200, {"tokens": tokens}
 
     async def _async_render_POST(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
@@ -121,6 +140,8 @@ class RedeemResource(SuperInviteResourceBase):
             if session.scalar(select(Accepted).where(Accepted.user==my_id, Accepted.token==token)):
                 return 400, {"error": "Token already redeemed found", "errcode": "ALREADY_REDEEMED"}
 
+            if token.owner == my_id:
+                return 400, {"error": "Can't redeem your own token", "errcode": "CANT_REDEEM"}
 
             owner = token.owner
             for room in token.rooms:
