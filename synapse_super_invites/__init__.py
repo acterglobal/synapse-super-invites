@@ -11,7 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from .config import run_alembic, SynapseSuperInvitesConfig
 from .model import Token
-from .resource import TokensPage
+from .resource import TokensResource, RedeemResource
 
 PKG_DIR = os.path.dirname(os.path.realpath(__file__)) 
 
@@ -27,7 +27,8 @@ class SynapseSuperInvites:
 
     def setup(self):
         self._api.register_web_resource('/_synapse/client/super_invites/static', File(os.path.join(PKG_DIR, "static")))
-        self._api.register_web_resource('/_synapse/client/super_invites/tokens', TokensPage(self._config, self._api, self._sessions))
+        self._api.register_web_resource('/_synapse/client/super_invites/tokens', TokensResource(self._config, self._api, self._sessions))
+        self._api.register_web_resource('/_synapse/client/super_invites/redeem', RedeemResource(self._config, self._api, self._sessions))
         
 
     @staticmethod

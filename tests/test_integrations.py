@@ -57,6 +57,48 @@ class SuperInviteHomeserverTestCase(HomeserverTestCase):
 class SimpleInviteTests(SuperInviteHomeserverTestCase):
 
     @override_config(DEFAULT_CONFIG)
+    def test_edit_invite_token_rooms(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["tokens"], [])
+
+        # creating five channel
+        roomA = self.create_room(m_id)
+        roomB = self.create_room(m_id)
+        roomC = self.create_room(m_id)
+        roomD = self.create_room(m_id)
+        roomE = self.create_room(m_id)
+
+        rooms_to_invite = [
+            roomB,  roomC, roomD,
+        ]
+        # create a new one for testing.
+        channel = self.make_request("POST", "/_synapse/client/super_invites/tokens", access_token=m_access_token, content={"rooms": rooms_to_invite })
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        token_data = channel.json_body["token"]
+        self.assertListEqual(token_data['rooms'], rooms_to_invite)
+        self.assertEqual(token_data['create_dm'], False)
+        token = token_data["token"]
+
+        # now we update the roomlist
+
+        rooms_to_invite = [
+            roomA,  roomC, roomE,
+        ]
+        # create a new one for testing.
+        channel = self.make_request("POST", "/_synapse/client/super_invites/tokens", access_token=m_access_token, content={"token": token, "create_dm": True, "rooms": rooms_to_invite })
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        token_data = channel.json_body["token"]
+        self.assertEqual(token_data['token'], token)
+        self.assertListEqual(token_data['rooms'], rooms_to_invite)
+        self.assertEqual(token_data['create_dm'], True)
+
+
+    @override_config(DEFAULT_CONFIG)
     def test_simple_invite_token_test(self) -> None:
         m_id = self.register_user("meeko", "password")
         m_access_token = self.login("meeko", "password")
@@ -80,7 +122,7 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         channel = self.make_request("POST", "/_synapse/client/super_invites/tokens", access_token=m_access_token, content={"rooms": rooms_to_invite })
         self.assertEqual(channel.code, 200, msg=channel.result)
         token_data = channel.json_body["token"]
-        self.assertEqual(token_data['rooms'], rooms_to_invite)
+        self.assertListEqual(token_data['rooms'], rooms_to_invite)
         token = token_data["token"]
 
         # redeem the new token
@@ -88,9 +130,15 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         f_id = self.register_user("flit", "flit")
         f_access_token = self.login("flit", "flit")
 
-        channel = self.make_request("GET", "/_synapse/client/super_invites/redeem", access_token=f_access_token, content={"token": token})
+        channel = self.make_request("GET", "/_synapse/client/super_invites/redeem?token={token}".format(token=token), access_token=f_access_token)
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["rooms"], rooms_to_invite)
+
+        # we see it has been redeemed
+        channel = self.make_request("POST", "/_synapse/client/super_invites/tokens?token={token}".format(token=token), access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        token_data = channel.json_body["token"]
+        self.assertListEqual(token_data['redeemed_count'], 1)
 
         # and flit was invited to these, too:
 

@@ -6,7 +6,7 @@ from twisted.web.server import Site
 
 from synapse.types import Tuple, JsonDict, Requester
 from synapse.http.site import SynapseRequest
-from synapse.http.servlet import parse_json_object_from_request
+from synapse.http.servlet import parse_json_object_from_request, parse_string
 from synapse.http.server import DirectServeJsonResource
 from synapse.module_api import ModuleApi
 
@@ -19,14 +19,14 @@ from sqlalchemy import select, insert, update
 
 def can_edit_token(token: Token, requester: Requester) -> bool:
     # kept outside so we can make it more sophisticated later
-    return token.owner == str(requester.user_id)
+    return token.owner == str(requester.user)
 
 def serialize_token(token: Token) -> JsonDict:
-    return {"token" : token.token, "create_dm": token.create_dm, "rooms": [] }
+    return {"token" : token.token, "create_dm": token.create_dm, "rooms": list(map(lambda r: r.nameOrAlias, token.rooms))}
 
 
 
-class TokensPage(DirectServeJsonResource):
+class TokensResource(DirectServeJsonResource):
 
     def __init__(self, config: SynapseSuperInvitesConfig, api: ModuleApi, sessions: sessionmaker):
         super().__init__()
@@ -46,14 +46,16 @@ class TokensPage(DirectServeJsonResource):
         requester = await self.api.get_user_by_req(request, allow_guest=False)
         payload = parse_json_object_from_request(request)
         token_id = payload.get("token", None)
-        rooms = payload.get("rooms", [])
         create_dm = payload.get("create_dm", False)
+
         token_data = None
         with self.db.begin() as session:
 
+            rooms = list(map(lambda key: session.merge(Room(nameOrAlias = key)), payload.get("rooms", [])))
+
             token = None
             if token_id: 
-                token = session.scalar(select(Token).where(Token.token==token_id)).one()
+                token = session.scalar(select(Token).where(Token.token==token_id))
             
                 if token:
                     # check if we have the permission
@@ -62,15 +64,44 @@ class TokensPage(DirectServeJsonResource):
 
                     # token.rooms = rooms
                     token.create_dm = create_dm
-                    session.execute(update(token))
-                    session.flush()
+                    token.rooms = rooms
 
             if not token:
-                token = Token(token=token_id, create_dm=create_dm, owner=str(requester.user))
+                token = Token(token=token_id, create_dm=create_dm, owner=str(requester.user), rooms=rooms)
                 session.add(token)
-                session.flush()
+
+            session.flush()
 
             token_data = serialize_token(token)
         
         return 200, {"token": token_data}
         
+
+class RedeemResource(DirectServeJsonResource):
+
+    def __init__(self, config: SynapseSuperInvitesConfig, api: ModuleApi, sessions: sessionmaker):
+        super().__init__()
+        self.config = config
+        self.api = api
+        self.db = sessions
+
+    async def _async_render_GET(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
+        requester = await self.api.get_user_by_req(request, allow_guest=False)
+        my_id = str(requester.user)
+        token_id = parse_string(request, "token", required=True)
+        invited_rooms = []
+        with self.db.begin() as session:
+            token = session.scalar(select(Token).where(Token.token==token_id))
+            if not token:
+                return 404, {"error": "Token not found", "errcode": "NOT_FOUND"}
+
+            owner = token.owner
+            for room in token.rooms:
+                await self.api.update_room_membership(sender=owner, target=my_id, room_id=room.nameOrAlias, new_membership = "invite")
+                invited_rooms.append(room.nameOrAlias)
+
+            if token.create_dm:
+                dm_data = await self.api.create_room(my_id, config={"preset": "trusted_private_chat", "invite": [owner]})
+                invited_rooms.append(dm_data[0])
+
+        return 200, {"rooms": invited_rooms}
