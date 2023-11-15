@@ -1,8 +1,8 @@
-from matrix_synapse_testutils.unittest import HomeserverTestCase, override_config
+from matrix_synapse_testutils.unittest import HomeserverTestCase, override_config # type: ignore[import-untyped]
 from synapse.rest import admin
 from synapse.rest.client import login, profile, register, room, sync
 from synapse.server import HomeServer
-from synapse.types import Dict
+from synapse.types import Dict # type: ignore[attr-defined]
 from synapse.util import Clock
 from twisted.test.proto_helpers import MemoryReactor
 from twisted.web.resource import Resource
@@ -20,7 +20,7 @@ DEFAULT_CONFIG = {
 
 
 # Some more local helpers
-class SuperInviteHomeserverTestCase(HomeserverTestCase):
+class SuperInviteHomeserverTestCase(HomeserverTestCase): # type: ignore[misc]
     servlets = [
         admin.register_servlets,
         login.register_servlets,
@@ -38,20 +38,21 @@ class SuperInviteHomeserverTestCase(HomeserverTestCase):
         self.auth_handler = hs.get_auth_handler()
 
     def create_resource_dict(self) -> Dict[str, Resource]:
-        d = super().create_resource_dict()
+        d : Dict[str, Resource] = super().create_resource_dict()
         for key in self.hs._module_web_resources:
             d[key] = self.hs._module_web_resources[key]
         return d
 
     # create a room with the given access_token, return the roomId
-    def create_room(self, user_id) -> str:
-        return self.get_success(
+    def create_room(self, user_id: str) -> str:
+        room_id: str = self.get_success(
             self.module_api.create_room(user_id=user_id, config={}, ratelimit=False)
         )[0]
+        return room_id 
 
 
 class SimpleInviteTests(SuperInviteHomeserverTestCase):
-    @override_config(DEFAULT_CONFIG)
+    @override_config(DEFAULT_CONFIG) #type: ignore[misc]
     def test_edit_invite_token_rooms(self) -> None:
         m_id = self.register_user("meeko", "password")
         m_access_token = self.login("meeko", "password")
@@ -108,7 +109,7 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         self.assertCountEqual(token_data["rooms"], rooms_to_invite)
         self.assertEqual(token_data["create_dm"], True)
 
-    @override_config(DEFAULT_CONFIG)
+    @override_config(DEFAULT_CONFIG) # type: ignore[misc]
     def test_simple_invite_token_test(self) -> None:
         m_id = self.register_user("meeko", "password")
         m_access_token = self.login("meeko", "password")
@@ -193,7 +194,7 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
                 }
             ],
         }
-    )
+    )  # type: ignore[misc]
     def test_simple_invite_as_registration_token_test(self) -> None:
         _m_id = self.register_user("meeko", "password")
         m_access_token = self.login("meeko", "password")
@@ -225,7 +226,7 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertTrue(channel.json_body["valid"])
 
-    @override_config(DEFAULT_CONFIG)
+    @override_config(DEFAULT_CONFIG)  # type: ignore[misc]
     def test_simple_invite_token_only_dm_test(self) -> None:
         _m_id = self.register_user("meeko", "password")
         m_access_token = self.login("meeko", "password")
@@ -292,7 +293,7 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         self.assertEqual(channel.json_body["rooms"].get("invite"), None)
         self.assertCountEqual(channel.json_body["rooms"]["join"].keys(), [new_dm])
 
-    @override_config(DEFAULT_CONFIG)
+    @override_config(DEFAULT_CONFIG)  # type: ignore[misc]
     def test_simple_invite_token_with_dm_test(self) -> None:
         m_id = self.register_user("meeko", "password")
         m_access_token = self.login("meeko", "password")
@@ -374,7 +375,7 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         # the dm is sent in our name, we already joined it.
         self.assertCountEqual(channel.json_body["rooms"]["join"].keys(), [my_dm])
 
-    @override_config(DEFAULT_CONFIG)
+    @override_config(DEFAULT_CONFIG)  # type: ignore[misc]
     def test_only_dm_redeem_once(self) -> None:
         _m_id = self.register_user("meeko", "password")
         m_access_token = self.login("meeko", "password")
@@ -436,7 +437,7 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         )
         self.assertEqual(channel.code, 400, msg=channel.result)
 
-    @override_config(DEFAULT_CONFIG)
+    @override_config(DEFAULT_CONFIG)  # type: ignore[misc]
     def test_deletion(self) -> None:
         _m_id = self.register_user("meeko", "password")
         m_access_token = self.login("meeko", "password")
@@ -510,7 +511,7 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         )
         self.assertEqual(channel.code, 404, msg=channel.result)
 
-    @override_config(DEFAULT_CONFIG)
+    @override_config(DEFAULT_CONFIG)  # type: ignore[misc]
     def test_cant_redeem_my_own(self) -> None:
         _m_id = self.register_user("meeko", "password")
         m_access_token = self.login("meeko", "password")

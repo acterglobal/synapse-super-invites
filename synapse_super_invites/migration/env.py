@@ -49,14 +49,14 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def run_migrations_online():
+def run_migrations_online() -> None:
     connectable = config.attributes.get("connection", None)
 
     if connectable is None:
         # only create Engine if we don't have a Connection
         # from the outside
         connectable = engine_from_config(
-            config.get_section(config.config_ini_section),
+            config.get_section(config.config_ini_section), # type: ignore[arg-type]
             prefix="sqlalchemy.",
             poolclass=pool.NullPool,
         )

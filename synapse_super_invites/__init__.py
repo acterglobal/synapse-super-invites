@@ -23,7 +23,7 @@ class SynapseSuperInvites:
         self._config = config
         self.setup()
 
-    def setup(self):
+    def setup(self) -> None:
         self._api.register_web_resource(
             "/_synapse/client/super_invites/static",
             File(os.path.join(PKG_DIR, "static")),
@@ -42,4 +42,4 @@ class SynapseSuperInvites:
         try:
             return SynapseSuperInvitesConfig(**config)
         except TypeError as e:
-            raise ConfigError(e)
+            raise ConfigError(str(e))
