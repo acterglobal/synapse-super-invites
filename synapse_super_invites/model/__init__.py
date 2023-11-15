@@ -5,7 +5,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from uuid import uuid4
 
 def uuid_short() -> str:
-    return str(uuid.uuid4()).split("-")[0]
+    return str(uuid4()).split("-")[0]
 
 
 class Base(DeclarativeBase):
@@ -39,7 +39,7 @@ class Token(Base):
     deleted_at = mapped_column(DateTime(timezone=True), default = None)
     
     def __repr__(self) -> str:
-        return f"Token({self.token!r}, owned={self.user!r})"
+        return f"Token({self.token!r}, owned={self.owner!r})"
 
 class Room(Base):
     __tablename__ = "rooms"

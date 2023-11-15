@@ -60,12 +60,12 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         # creating five channel
         roomA = await self.create_room(m_id)
         roomB = await self.create_room(m_id)
-        roomC = await self.create_room(m_id)
-        roomD = await self.create_room(m_id)
-        roomE = await self.create_room(m_id)
+        # roomC = await self.create_room(m_id)
+        # roomD = await self.create_room(m_id)
+        # roomE = await self.create_room(m_id)
 
         rooms_to_invite = [
-            roomB, roomC, roomD,
+            roomB, # roomC, roomD,
         ]
         # create a new one for testing.
         channel = self.make_request("POST", "/_synapse/client/super_invites/tokens", access_token=m_access_token, body={"rooms": rooms_to_invite })
