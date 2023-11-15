@@ -118,6 +118,10 @@ class RedeemResource(SuperInviteResourceBase):
             if not token:
                 return 404, {"error": "Token not found", "errcode": "NOT_FOUND"}
 
+            if session.scalar(select(Accepted).where(Accepted.user==my_id, Accepted.token==token)):
+                return 400, {"error": "Token already redeemed found", "errcode": "ALREADY_REDEEMED"}
+
+
             owner = token.owner
             for room in token.rooms:
                 await self.api.update_room_membership(sender=owner, target=my_id, room_id=room.nameOrAlias, new_membership = "invite")
