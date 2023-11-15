@@ -25,7 +25,9 @@ def serialize_token(token: Token) -> JsonDict:
 
 
 def token_query(token_id: str):
-    return select(Token).where(Token.token == token_id, Token.deleted_at == None) # noqa: E711
+    return select(Token).where(
+        Token.token == token_id, Token.deleted_at == None  # noqa: E711
+    )
 
 
 class SuperInviteResourceBase(DirectServeJsonResource):
@@ -81,7 +83,8 @@ class TokensResource(SuperInviteResourceBase):
         with self.db.begin() as session:
             for token in session.scalars(
                 select(Token).where(
-                    Token.owner == str(requester.user), Token.deleted_at == None  # noqa: E711
+                    Token.owner == str(requester.user),
+                    Token.deleted_at == None,  # noqa: E711
                 )
             ).all():
                 tokens.append(serialize_token(token))
