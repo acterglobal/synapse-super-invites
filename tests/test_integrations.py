@@ -125,6 +125,7 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         token_data = channel.json_body["token"]
         self.assertCountEqual(token_data['rooms'], rooms_to_invite)
         self.assertEquals(token_data['accepted_count'], 0)
+        self.assertFalse(token_data['create_dm'])
         token = token_data["token"]
 
         # redeem the new token
@@ -178,3 +179,141 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         channel = self.make_request("GET", "/_matrix/client/v1/register/m.login.registration_token/validity?token={token}".format(token=token["token"]))
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertTrue(channel.json_body["valid"])
+
+    @override_config(DEFAULT_CONFIG)
+    def test_simple_invite_token_only_dm_test(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["tokens"], [])
+
+        # create a new one for testing.
+        channel = self.make_request("POST", "/_synapse/client/super_invites/tokens", access_token=m_access_token, content={"rooms": [], "create_dm":  True})
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        token_data = channel.json_body["token"]
+        self.assertCountEqual(token_data['rooms'], [])
+        self.assertEquals(token_data['accepted_count'], 0)
+        self.assertTrue(token_data['create_dm'])
+        token = token_data["token"]
+
+        # redeem the new token
+
+        f_id = self.register_user("flit", "flit")
+        f_access_token = self.login("flit", "flit")
+
+        channel = self.make_request("POST", "/_synapse/client/super_invites/redeem?token={token}".format(token=token), access_token=f_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        # only the DM added to
+        self.assertEquals(len(channel.json_body["rooms"]), 1)
+
+        new_dm = channel.json_body["rooms"][0]
+
+        # we see it has been redeemed
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens?token={token}".format(token=token), access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        token_data = channel.json_body["token"]
+        self.assertEquals(token_data['accepted_count'], 1)
+
+        # and flit was invited to these, too:
+        channel = self.make_request("GET", "/_matrix/client/v3/sync", access_token=f_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        # we are the author of the DM, so we aren't invited, but just added
+        self.assertEqual(channel.json_body["rooms"].get("invite"), None)
+        self.assertCountEqual(channel.json_body["rooms"]["join"].keys(), [new_dm])
+
+    @override_config(DEFAULT_CONFIG)
+    def test_simple_invite_token_with_dm_test(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["tokens"], [])
+
+        roomB = self.create_room(m_id)
+        roomC = self.create_room(m_id)
+        roomD = self.create_room(m_id)
+
+        rooms_to_invite = [
+            roomB,  roomC, roomD,
+        ]
+        # create a new one for testing.
+        channel = self.make_request("POST", "/_synapse/client/super_invites/tokens", access_token=m_access_token, content={"rooms": rooms_to_invite, "create_dm":  True})
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        token_data = channel.json_body["token"]
+        self.assertCountEqual(token_data['rooms'], rooms_to_invite)
+        self.assertEquals(token_data['accepted_count'], 0)
+        self.assertTrue(token_data['create_dm'])
+        token = token_data["token"]
+
+        # redeem the new token
+
+        f_id = self.register_user("flit", "flit")
+        f_access_token = self.login("flit", "flit")
+
+        channel = self.make_request("POST", "/_synapse/client/super_invites/redeem?token={token}".format(token=token), access_token=f_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        # list the rooms we were invited to
+        remaining_rooms = []
+        for r in channel.json_body["rooms"]:
+            if r in rooms_to_invite:
+                continue
+            remaining_rooms.append(r)
+        self.assertEqual(len(remaining_rooms),1)
+        my_dm = remaining_rooms[0]
+
+        # we see it has been redeemed
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens?token={token}".format(token=token), access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        token_data = channel.json_body["token"]
+        self.assertEquals(token_data['accepted_count'], 1)
+
+        # and flit was invited to these, too:
+        channel = self.make_request("GET", "/_matrix/client/v3/sync", access_token=f_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertCountEqual(channel.json_body["rooms"]["invite"].keys(), rooms_to_invite)
+        # the dm is sent in our name, we already joined it.
+        self.assertCountEqual(channel.json_body["rooms"]["join"].keys(), [my_dm])
+
+    @override_config(DEFAULT_CONFIG)
+    def test_only_dm_redeem_once(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["tokens"], [])
+
+        # create a new one for testing.
+        channel = self.make_request("POST", "/_synapse/client/super_invites/tokens", access_token=m_access_token, content={"rooms": [], "create_dm":  True})
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        token_data = channel.json_body["token"]
+        self.assertEquals(token_data['accepted_count'], 0)
+        self.assertTrue(token_data['create_dm'])
+        token = token_data["token"]
+
+        # redeem the new token
+        f_id = self.register_user("flit", "flit")
+        f_access_token = self.login("flit", "flit")
+
+        channel = self.make_request("POST", "/_synapse/client/super_invites/redeem?token={token}".format(token=token), access_token=f_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        # list the rooms we were invited to
+        self.assertEquals(len(channel.json_body["rooms"]), 1)
+
+        # we see it has been redeemed
+        channel = self.make_request("GET", "/_synapse/client/super_invites/tokens?token={token}".format(token=token), access_token=m_access_token)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        token_data = channel.json_body["token"]
+        self.assertEquals(token_data['accepted_count'], 1)
+
+        # trying to redeem again fails.
+        channel = self.make_request("POST", "/_synapse/client/super_invites/redeem?token={token}".format(token=token), access_token=f_access_token)
+        self.assertEqual(channel.code, 400, msg=channel.result)
+
+
