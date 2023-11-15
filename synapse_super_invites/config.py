@@ -22,5 +22,5 @@ def run_alembic(engine):
 @attr.define
 class SynapseSuperInvitesConfig:
     sql_url: str
-    generate_registration_token : bool = attr.field(default = True)
+    generate_registration_token : bool = attr.field(default = False)
 

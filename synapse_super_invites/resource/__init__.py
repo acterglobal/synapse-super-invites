@@ -92,9 +92,16 @@ class TokensResource(SuperInviteResourceBase):
                 token = Token(token=token_id, create_dm=create_dm, owner=str(requester.user), rooms=rooms)
                 session.add(token)
 
+
             session.flush()
 
             token_data = serialize_token(token)
+
+        if self.config.generate_registration_token:
+            token_id = token_data["token"]
+            # FIXME: it'd be great if we didn't have to resort to using internal args...
+            if not (await self.api._store.registration_token_is_valid(token_id)):
+                await self.api._store.create_registration_token(token=token_id, uses_allowed=None, expiry_time=None)
         
         return 200, {"token": token_data}
         

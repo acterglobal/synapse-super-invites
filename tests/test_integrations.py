@@ -6,7 +6,7 @@ from twisted.test.proto_helpers import MemoryReactor
 from synapse.types import JsonDict, Dict
 from synapse.server import HomeServer
 from synapse.util import Clock
-from synapse.rest.client import login, room, profile, sync
+from synapse.rest.client import login, room, profile, sync, register
 from synapse.rest import admin
 from twisted.web.resource import Resource
 
@@ -16,7 +16,6 @@ from matrix_synapse_testutils.test_utils import simple_async_mock
 from .test_config import DEFAULT_CONFIG as DEFAULT_MODULE_CFG
 
 DEFAULT_CONFIG = {
-    
     "modules": [{
         "module": "synapse_super_invites.SynapseSuperInvites",
         "config": DEFAULT_MODULE_CFG
@@ -34,6 +33,7 @@ class SuperInviteHomeserverTestCase(HomeserverTestCase):
         room.register_servlets,
         profile.register_servlets,
         sync.register_servlets,
+        register.register_servlets,
     ]
 
 
@@ -149,7 +149,17 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         self.assertCountEqual(channel.json_body["rooms"]["invite"].keys(), rooms_to_invite)
 
 
-    @override_config(DEFAULT_CONFIG)
+    @override_config({
+        "enable_registration": True,
+        "registration_requires_token": True,
+        "modules": [{
+            "module": "synapse_super_invites.SynapseSuperInvites",
+            "config": {
+                "sql_url": "sqlite:///",
+                "generate_registration_token": True,
+            }
+        }]
+    })
     def test_simple_invite_as_registration_token_test(self) -> None:
         m_id = self.register_user("meeko", "password")
         m_access_token = self.login("meeko", "password")
@@ -164,4 +174,7 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         self.assertEqual(channel.code, 200, msg=channel.result)
         token = channel.json_body["token"]
 
-        # FIXME: trying to register with that new token
+        # let's see if the token exists and is valid
+        channel = self.make_request("GET", "/_matrix/client/v1/register/m.login.registration_token/validity?token={token}".format(token=token["token"]))
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertTrue(channel.json_body["valid"])

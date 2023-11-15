@@ -11,7 +11,7 @@ class ConfigParsingTests(TestCase):
 
     def test_default_config(self) -> None:
         config = SynapseSuperInvites.parse_config(DEFAULT_CONFIG)
-        self.assertEqual(config.generate_registration_token, True)
+        self.assertEqual(config.generate_registration_token, False)
 
     def test_fails_no_sql(self) -> None:
         with self.assertRaises(ConfigError):
