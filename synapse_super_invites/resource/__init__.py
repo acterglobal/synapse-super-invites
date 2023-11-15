@@ -1,36 +1,37 @@
-
-from twisted.application.internet import TCPServer
-from twisted.application.service import Application
-from twisted.web.resource import Resource
-from twisted.web.server import Site
-
-from synapse.types import Tuple, JsonDict, Requester
-from synapse.http.site import SynapseRequest
-from synapse.http.servlet import parse_json_object_from_request, parse_string
+from sqlalchemy import func, select
+from sqlalchemy.orm import sessionmaker
 from synapse.http.server import DirectServeJsonResource
+from synapse.http.servlet import parse_json_object_from_request, parse_string
+from synapse.http.site import SynapseRequest
 from synapse.module_api import ModuleApi
+from synapse.types import JsonDict, Requester, Tuple
 
 from synapse_super_invites.config import SynapseSuperInvitesConfig
-from synapse_super_invites.model import Token, Room, Accepted
+from synapse_super_invites.model import Accepted, Room, Token
 
-from sqlalchemy.engine import Engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import select, insert, update, func
 
 def can_edit_token(token: Token, requester: Requester) -> bool:
     # kept outside so we can make it more sophisticated later
     return token.owner == str(requester.user)
 
+
 def serialize_token(token: Token) -> JsonDict:
-    return {"token" : token.token, "create_dm": token.create_dm, "accepted_count": len(token.accepted), "rooms": list(map(lambda r: r.nameOrAlias, token.rooms))}
+    return {
+        "token": token.token,
+        "create_dm": token.create_dm,
+        "accepted_count": len(token.accepted),
+        "rooms": [r.nameOrAlias for r in token.rooms],
+    }
 
 
 def token_query(token_id: str):
-    return select(Token).where(Token.token==token_id, Token.deleted_at == None)
+    return select(Token).where(Token.token == token_id, Token.deleted_at == None) # noqa: E711
+
 
 class SuperInviteResourceBase(DirectServeJsonResource):
-
-    def __init__(self, config: SynapseSuperInvitesConfig, api: ModuleApi, sessions: sessionmaker):
+    def __init__(
+        self, config: SynapseSuperInvitesConfig, api: ModuleApi, sessions: sessionmaker
+    ):
         super().__init__()
         self.config = config
         self.api = api
@@ -38,13 +39,13 @@ class SuperInviteResourceBase(DirectServeJsonResource):
 
 
 class TokensResource(SuperInviteResourceBase):
-
-    async def _async_render_DELETE(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
+    async def _async_render_DELETE(
+        self, request: SynapseRequest
+    ) -> Tuple[int, JsonDict]:
         requester = await self.api.get_user_by_req(request, allow_guest=False)
 
         token_id = parse_string(request, "token", required=True)
         # query for a specific token
-        token_data = None
         with self.db.begin() as session:
             token = session.scalar(token_query(token_id))
             if not token:
@@ -55,8 +56,7 @@ class TokensResource(SuperInviteResourceBase):
             token.deleted_at = func.now()
             session.flush()
 
-        return 200, { }
-
+        return 200, {}
 
     async def _async_render_GET(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
         requester = await self.api.get_user_by_req(request, allow_guest=False)
@@ -74,12 +74,16 @@ class TokensResource(SuperInviteResourceBase):
 
                 token_data = serialize_token(token)
 
-            return 200, {"token": token_data }
-                
+            return 200, {"token": token_data}
+
         # by default, we list all tokens
         tokens = []
         with self.db.begin() as session:
-            for token in session.scalars(select(Token).where(Token.owner==str(requester.user), Token.deleted_at == None)).all():
+            for token in session.scalars(
+                select(Token).where(
+                    Token.owner == str(requester.user), Token.deleted_at == None  # noqa: E711
+                )
+            ).all():
                 tokens.append(serialize_token(token))
         return 200, {"tokens": tokens}
 
@@ -91,13 +95,14 @@ class TokensResource(SuperInviteResourceBase):
 
         token_data = None
         with self.db.begin() as session:
-
-            rooms = list(map(lambda key: session.merge(Room(nameOrAlias = key)), payload.get("rooms", [])))
+            rooms = [
+                session.merge(Room(nameOrAlias=key)) for key in payload.get("rooms", [])
+            ]
 
             token = None
-            if token_id: 
-                token = session.scalar(select(Token).where(Token.token==token_id))
-            
+            if token_id:
+                token = session.scalar(select(Token).where(Token.token == token_id))
+
                 if token:
                     # check if we have the permission
                     if not can_edit_token(token, requester):
@@ -108,9 +113,13 @@ class TokensResource(SuperInviteResourceBase):
                     token.rooms = rooms
 
             if not token:
-                token = Token(token=token_id, create_dm=create_dm, owner=str(requester.user), rooms=rooms)
+                token = Token(
+                    token=token_id,
+                    create_dm=create_dm,
+                    owner=str(requester.user),
+                    rooms=rooms,
+                )
                 session.add(token)
-
 
             session.flush()
 
@@ -120,13 +129,14 @@ class TokensResource(SuperInviteResourceBase):
             token_id = token_data["token"]
             # FIXME: it'd be great if we didn't have to resort to using internal args...
             if not (await self.api._store.registration_token_is_valid(token_id)):
-                await self.api._store.create_registration_token(token=token_id, uses_allowed=None, expiry_time=None)
-        
+                await self.api._store.create_registration_token(
+                    token=token_id, uses_allowed=None, expiry_time=None
+                )
+
         return 200, {"token": token_data}
-        
+
 
 class RedeemResource(SuperInviteResourceBase):
-
     async def _async_render_POST(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
         requester = await self.api.get_user_by_req(request, allow_guest=False)
         my_id = str(requester.user)
@@ -137,19 +147,34 @@ class RedeemResource(SuperInviteResourceBase):
             if not token:
                 return 404, {"error": "Token not found", "errcode": "NOT_FOUND"}
 
-            if session.scalar(select(Accepted).where(Accepted.user==my_id, Accepted.token==token)):
-                return 400, {"error": "Token already redeemed found", "errcode": "ALREADY_REDEEMED"}
+            if session.scalar(
+                select(Accepted).where(Accepted.user == my_id, Accepted.token == token)
+            ):
+                return 400, {
+                    "error": "Token already redeemed found",
+                    "errcode": "ALREADY_REDEEMED",
+                }
 
             if token.owner == my_id:
-                return 400, {"error": "Can't redeem your own token", "errcode": "CANT_REDEEM"}
+                return 400, {
+                    "error": "Can't redeem your own token",
+                    "errcode": "CANT_REDEEM",
+                }
 
             owner = token.owner
             for room in token.rooms:
-                await self.api.update_room_membership(sender=owner, target=my_id, room_id=room.nameOrAlias, new_membership = "invite")
+                await self.api.update_room_membership(
+                    sender=owner,
+                    target=my_id,
+                    room_id=room.nameOrAlias,
+                    new_membership="invite",
+                )
                 invited_rooms.append(room.nameOrAlias)
 
             if token.create_dm:
-                dm_data = await self.api.create_room(my_id, config={"preset": "trusted_private_chat", "invite": [owner]})
+                dm_data = await self.api.create_room(
+                    my_id, config={"preset": "trusted_private_chat", "invite": [owner]}
+                )
                 invited_rooms.append(dm_data[0])
 
             # keep the accepted record
