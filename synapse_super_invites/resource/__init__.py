@@ -22,7 +22,7 @@ def can_edit_token(token: Token, requester: Requester) -> bool:
     return token.owner == str(requester.user_id)
 
 def serialize_token(token: Token) -> JsonDict:
-    return {"token" : token.token, "create_dm": token.create_dm }
+    return {"token" : token.token, "create_dm": token.create_dm, "rooms": [] }
 
 
 
