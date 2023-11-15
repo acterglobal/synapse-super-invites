@@ -1,0 +1,31 @@
+server_name: "localhost:8091"
+enable_registration: true
+registration_requires_token: true
+registration_shared_secret: exampleLove
+report_stats: false
+suppress_key_server_warning: true
+pid_file: tests/.local/homeserver.pid
+log_config: "tests/.local/localhost.log.config"
+media_store_path: tests/.local/media_store
+signing_key_path: "tests/.local/localhost.signing.key"
+trusted_key_servers:
+  - server_name: "acter.global"
+
+database:
+  name: sqlite3
+  args:
+    database: tests/.local/synapse.sqlite
+listeners:
+  - port: 8091
+    type: http
+    tls: false
+    resources:
+      - names: [client]
+
+# the actual example implementation
+modules:
+  - module: "synapse_super_invites.SynapseSuperInvites"
+    config:
+      # we use an in-process sqlite3
+      sql_url: "sqlite:///tests/.local/super_invites.sqlite"
+      generate_registration_token: true
