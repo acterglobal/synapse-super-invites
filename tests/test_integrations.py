@@ -6,7 +6,7 @@ from twisted.test.proto_helpers import MemoryReactor
 from synapse.types import JsonDict, Dict
 from synapse.server import HomeServer
 from synapse.util import Clock
-from synapse.rest.client import login, room, profile
+from synapse.rest.client import login, room, profile, sync
 from synapse.rest import admin
 from twisted.web.resource import Resource
 
@@ -33,6 +33,7 @@ class SuperInviteHomeserverTestCase(HomeserverTestCase):
         login.register_servlets,
         room.register_servlets,
         profile.register_servlets,
+        sync.register_servlets,
     ]
 
 
@@ -131,7 +132,7 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         f_id = self.register_user("flit", "flit")
         f_access_token = self.login("flit", "flit")
 
-        channel = self.make_request("GET", "/_synapse/client/super_invites/redeem?token={token}".format(token=token), access_token=f_access_token)
+        channel = self.make_request("POST", "/_synapse/client/super_invites/redeem?token={token}".format(token=token), access_token=f_access_token)
         self.assertEqual(channel.code, 200, msg=channel.result)
         # list the rooms we were invited to
         self.assertCountEqual(channel.json_body["rooms"], rooms_to_invite)
@@ -143,10 +144,9 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         self.assertEquals(token_data['accepted_count'], 1)
 
         # and flit was invited to these, too:
-
-        channel = self.make_request("GET", "/_matrix/sync", access_token=f_access_token)
+        channel = self.make_request("GET", "/_matrix/client/v3/sync", access_token=f_access_token)
         self.assertEqual(channel.code, 200, msg=channel.result)
-        self.assertCountEqual(channel.json_body["rooms"]["invited"].keys(), rooms_to_invite)
+        self.assertCountEqual(channel.json_body["rooms"]["invite"].keys(), rooms_to_invite)
 
 
     @override_config(DEFAULT_CONFIG)
@@ -159,10 +159,9 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["tokens"], [])
 
-        # create a new one for testing.
+        # create a new token for testing.
         channel = self.make_request("POST", "/_synapse/client/super_invites/tokens", {"rooms": []}, access_token=m_access_token, )
         self.assertEqual(channel.code, 200, msg=channel.result)
         token = channel.json_body["token"]
 
-        # trying to register with that new token
-
+        # FIXME: trying to register with that new token

@@ -11,7 +11,7 @@ from synapse.http.server import DirectServeJsonResource
 from synapse.module_api import ModuleApi
 
 from synapse_super_invites.config import SynapseSuperInvitesConfig
-from synapse_super_invites.model import Token, Room
+from synapse_super_invites.model import Token, Room, Accepted
 
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
@@ -101,7 +101,7 @@ class TokensResource(SuperInviteResourceBase):
 
 class RedeemResource(SuperInviteResourceBase):
 
-    async def _async_render_GET(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
+    async def _async_render_POST(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
         requester = await self.api.get_user_by_req(request, allow_guest=False)
         my_id = str(requester.user)
         token_id = parse_string(request, "token", required=True)
@@ -119,5 +119,9 @@ class RedeemResource(SuperInviteResourceBase):
             if token.create_dm:
                 dm_data = await self.api.create_room(my_id, config={"preset": "trusted_private_chat", "invite": [owner]})
                 invited_rooms.append(dm_data[0])
+
+            # keep the accepted record
+            session.add(Accepted(token=token, user=my_id))
+            session.flush()
 
         return 200, {"rooms": invited_rooms}
