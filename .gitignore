@@ -6,5 +6,6 @@
 _trial_temp
 __pycache__
 /dist
+build/
 tests/.local/
 homeserver.log
