@@ -27,6 +27,10 @@ modules:
 
 ## Changelog
 
+**0.8.0b3** - 2023-11-17:
+
+- Migration file inclusion
+
 **0.8.0b2** - 2023-11-17:
 
 - Fix broken import of `resource.*`
