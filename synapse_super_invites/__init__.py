@@ -8,7 +8,7 @@ from synapse.module_api import ModuleApi
 from twisted.web.static import File
 
 from .config import SynapseSuperInvitesConfig, run_alembic
-from .resource import RedeemResource, TokensResource, AccessResource
+from .resource import AccessResource, RedeemResource, TokensResource
 
 PKG_DIR = os.path.dirname(os.path.realpath(__file__))
 

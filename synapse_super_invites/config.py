@@ -1,9 +1,9 @@
 import os
 
-from sqlalchemy import Engine 
-from alembic.config import Config
 import alembic
 import attr
+from alembic.config import Config
+from sqlalchemy import Engine
 
 PKG_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -21,3 +21,4 @@ def run_alembic(engine: Engine) -> None:
 class SynapseSuperInvitesConfig:
     sql_url: str
     generate_registration_token: bool = attr.field(default=False)
+    enable_web: bool = attr.field(default=False)

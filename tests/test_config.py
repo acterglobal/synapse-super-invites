@@ -18,6 +18,10 @@ class ConfigParsingTests(TestCase):
 
     def test_disable_registration_token(self) -> None:
         config = SynapseSuperInvites.parse_config(
-            {"sql_url": "sqlite:///", "generate_registration_token": False}
+            {
+                "sql_url": "sqlite:///",
+                "generate_registration_token": False,
+                "enable_web": False,
+            }
         )
         self.assertEqual(config.generate_registration_token, False)

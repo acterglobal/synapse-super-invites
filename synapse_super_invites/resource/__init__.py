@@ -1,10 +1,16 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import sessionmaker
-from synapse.http.server import DirectServeJsonResource, DirectServeHtmlResource
+from synapse.http.server import (
+    DirectServeHtmlResource,
+    DirectServeJsonResource,
+    finish_request,
+    logger,
+    set_clickjacking_protection_headers,
+)
 from synapse.http.servlet import parse_json_object_from_request, parse_string
 from synapse.http.site import SynapseRequest
 from synapse.module_api import ModuleApi
-from synapse.types import JsonDict, Requester, Tuple, Any # type: ignore[attr-defined]
+from synapse.types import Any, JsonDict, Requester, Tuple  # type: ignore[attr-defined]
 
 from synapse_super_invites.config import SynapseSuperInvitesConfig
 from synapse_super_invites.model import Accepted, Room, Token
@@ -29,11 +35,14 @@ def token_query(token_id: str):  # type: ignore[no-untyped-def]
         Token.token == token_id, Token.deleted_at == None  # noqa: E711
     )
 
+
 class AccessResource(DirectServeHtmlResource):
-    def __init__(self, api: ModuleApi,):
+    def __init__(
+        self,
+        api: ModuleApi,
+    ):
         super().__init__()
         self.api = api
-
 
     def _send_response(
         self,
@@ -45,7 +54,7 @@ class AccessResource(DirectServeHtmlResource):
         # We expect to get bytes for us to write
         assert isinstance(response_object, bytes)
         js_bytes = response_object
-        
+
         # The response code must always be set, for logging purposes.
         request.setResponseCode(code)
 
@@ -67,18 +76,16 @@ class AccessResource(DirectServeHtmlResource):
         request.write(js_bytes)
         finish_request(request)
 
-    async def _async_render_GET(
-        self, request: SynapseRequest
-    ) -> Tuple[int, JsonDict]:
+    async def _async_render_GET(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
         # ensure logged int
-        requester = await self.api.get_user_by_req(request, allow_guest=False)
+        _requester = await self.api.get_user_by_req(request, allow_guest=False)
         access_token = await self.api._auth.get_access_token_from_request(request)
         return 200, 'startApp("{t}")'.format(t=access_token)
 
 
 class SuperInviteResourceBase(DirectServeJsonResource):
     def __init__(
-        self, config: SynapseSuperInvitesConfig, api: ModuleApi, sessions: sessionmaker # type: ignore[type-arg]
+        self, config: SynapseSuperInvitesConfig, api: ModuleApi, sessions: sessionmaker  # type: ignore[type-arg]
     ):
         super().__init__()
         self.config = config
