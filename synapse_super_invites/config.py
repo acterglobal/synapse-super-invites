@@ -9,7 +9,7 @@ PKG_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
 def run_alembic(engine: Engine) -> None:
-    alembic_cfg = Config(os.path.join(PKG_DIR, "..", "alembic.ini"))
+    alembic_cfg = Config(os.path.join(PKG_DIR, "alembic.ini"))
     alembic_cfg.set_main_option("script_location", os.path.join(PKG_DIR, "migration"))
 
     with engine.begin() as connection:
