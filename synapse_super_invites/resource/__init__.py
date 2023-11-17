@@ -218,6 +218,13 @@ class RedeemResource(SuperInviteResourceBase):
                     room_id=room.nameOrAlias,
                     new_membership="invite",
                 )
+
+                await self.api.update_room_membership(
+                    sender=my_id,
+                    target=my_id,
+                    room_id=room.nameOrAlias,
+                    new_membership="join",
+                )
                 invited_rooms.append(room.nameOrAlias)
 
             if token.create_dm:

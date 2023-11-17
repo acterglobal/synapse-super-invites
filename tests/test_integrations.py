@@ -176,8 +176,9 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
             "GET", "/_matrix/client/v3/sync", access_token=f_access_token
         )
         self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["rooms"].get("invite"), None)
         self.assertCountEqual(
-            channel.json_body["rooms"]["invite"].keys(), rooms_to_invite
+            channel.json_body["rooms"]["join"].keys(), rooms_to_invite
         )
 
     @override_config(
@@ -346,13 +347,12 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         )
         self.assertEqual(channel.code, 200, msg=channel.result)
         # list the rooms we were invited to
-        remaining_rooms = []
+        dm_rooms = []
         for r in channel.json_body["rooms"]:
             if r in rooms_to_invite:
                 continue
-            remaining_rooms.append(r)
-        self.assertEqual(len(remaining_rooms), 1)
-        my_dm = remaining_rooms[0]
+            dm_rooms.append(r)
+        self.assertEqual(len(dm_rooms), 1)
 
         # we see it has been redeemed
         channel = self.make_request(
@@ -369,11 +369,10 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
             "GET", "/_matrix/client/v3/sync", access_token=f_access_token
         )
         self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["rooms"].get("invite"), None)
         self.assertCountEqual(
-            channel.json_body["rooms"]["invite"].keys(), rooms_to_invite
+            channel.json_body["rooms"]["join"].keys(), rooms_to_invite + dm_rooms
         )
-        # the dm is sent in our name, we already joined it.
-        self.assertCountEqual(channel.json_body["rooms"]["join"].keys(), [my_dm])
 
     @override_config(DEFAULT_CONFIG)  # type: ignore[misc]
     def test_only_dm_redeem_once(self) -> None:
