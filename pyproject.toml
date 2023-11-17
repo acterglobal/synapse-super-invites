@@ -31,6 +31,9 @@ dev = [
   # for linting
   "black == 23.10.0",
   "ruff == 0.1.1",
+  # for publishing
+  "build",
+  "twine"
 ]
 
 [build-system]
@@ -42,6 +45,10 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
+
+
+[tool.setuptools.dynamic]
+version = {attr = "synapse_super_invites.__version__"}
 
 [tool.mypy]
 strict = true
