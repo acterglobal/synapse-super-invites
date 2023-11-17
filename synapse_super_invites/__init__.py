@@ -8,7 +8,7 @@ from synapse.module_api import ModuleApi
 from twisted.web.static import File
 
 from .config import SynapseSuperInvitesConfig, run_alembic
-from .resource import AccessResource, RedeemResource, TokensResource
+from .resource import RedeemResource, TokensResource, WebAccessResource
 
 PKG_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -32,14 +32,15 @@ class SynapseSuperInvites:
             "/_synapse/client/super_invites/redeem",
             RedeemResource(self._config, self._api, self._sessions),
         )
-        self._api.register_web_resource(
-            "/_synapse/client/super_invites/access.js",
-            AccessResource(self._api),
-        )
-        self._api.register_web_resource(
-            "/_synapse/client/super_invites",
-            File(os.path.join(PKG_DIR, "static/")),
-        )
+        if self._config.enable_web:
+            self._api.register_web_resource(
+                "/_synapse/client/super_invites/access.js",
+                WebAccessResource(self._api),
+            )
+            self._api.register_web_resource(
+                "/_synapse/client/super_invites",
+                File(os.path.join(PKG_DIR, "static/")),
+            )
 
     @staticmethod
     def parse_config(config: Dict[str, Any]) -> SynapseSuperInvitesConfig:
