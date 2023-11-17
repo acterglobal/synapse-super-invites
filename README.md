@@ -19,8 +19,8 @@ Then alter your homeserver configuration, adding to your `modules` configuration
 modules:
   - module: synapse_super_invites.SynapseSuperInvites
     config:
-      generate_registration_tokens: true # whether or not the invite tokens are also usable as registration tokens
-      # TODO: Complete this section with an example for your module
+      generate_registration_tokens: true # default: false - whether or not the invite tokens are also usable as registration tokens
+      enable_web: true # default: false - not yet ready web/html management app
 ```
 
 ## Development
