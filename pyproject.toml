@@ -25,7 +25,6 @@ dev = [
   "tox",
   "twisted",
   "matrix_synapse_testutils",
-  "pydantic >=1.7.4, <2", ## FIXME: https://github.com/matrix-org/synapse/issues/16630
   # for type checking
   "mypy == 1.6.1",
   # for linting
