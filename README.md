@@ -1,4 +1,4 @@
-# Super Inivitation flow for Synapse Matrix Homeserver
+# Super Invitation flow for Synapse Matrix Homeserver
 
 Provides extended support for users to invite other users to rooms via an invitation token
 
@@ -19,9 +19,34 @@ Then alter your homeserver configuration, adding to your `modules` configuration
 modules:
   - module: synapse_super_invites.SynapseSuperInvites
     config:
-      generate_registration_tokens: true # default: false - whether or not the invite tokens are also usable as registration tokens
+      sql_url: "sqlite:///data/super_invites.db"
+      generate_registration_token: true # default: false - whether or not the invite tokens are also usable as registration tokens
       enable_web: true # default: false - not yet ready web/html management app
 ```
+
+### Using [the ansible script]
+
+If you are using the awesome [matrix-docker-ansible-deploy suite by spantaleev]() (thanks, mate! Great work!),
+you can install and configure module by setting the following to your `vars.yml` for the corresponding server:
+
+```yaml
+# make sure we build a custom docker image for synapse
+matrix_synapse_container_image_customizations_enabled: true
+# install the super invites with pip
+matrix_synapse_container_image_customizations_dockerfile_body_custom: |
+  RUN pip install synapse_super_invites
+
+# add super-invites to the modules and configure it
+matrix_synapse_modules:
+  - module: "synapse_super_invites.SynapseSuperInvites"
+    config:
+      sql_url: "sqlite:///"
+      generate_registration_token: true
+```
+
+### Confirming
+
+You can confirm the installation went well by trying to access the path `/_synapse/client/super_invites/tokens` on your matrix server. If the module is available this will return with a `401` with `errCode: M_MISSING_TOKEN`. If it isn't available you will get a `404` with `"errcode: "M_UNRECOGNIZED"`.
 
 ## Usage
 
