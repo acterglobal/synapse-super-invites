@@ -10,7 +10,7 @@ from twisted.web.static import File
 from .config import SynapseSuperInvitesConfig, run_alembic
 from .resource import RedeemResource, TokensResource, WebAccessResource
 
-__version__ = "0.8.0b3"
+__version__ = "0.8.0"
 
 PKG_DIR = os.path.dirname(os.path.realpath(__file__))
 

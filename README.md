@@ -40,9 +40,11 @@ matrix_synapse_container_image_customizations_dockerfile_body_custom: |
 matrix_synapse_modules:
   - module: "synapse_super_invites.SynapseSuperInvites"
     config:
-      sql_url: "sqlite:///"
+      sql_url: "sqlite://///matrix-media-store-parent/super_invites.db"
       generate_registration_token: true
 ```
+
+This creates a super_invites database persistent across restarts and docker rebuilds, you can find in `/matrix/synapse/storage` on your host.
 
 ### Confirming
 
@@ -51,6 +53,11 @@ You can confirm the installation went well by trying to access the path `/_synap
 ## Usage
 
 ## Changelog
+
+**0.8.0** - 2023-11-24:
+
+- documentation about how to use this with the docker-ansible-scripts
+- roadmap info added
 
 **0.8.0b3** - 2023-11-17:
 
@@ -63,6 +70,13 @@ You can confirm the installation went well by trying to access the path `/_synap
 **0.8.0b1** - 2023-11-17:
 
 - First attempt at releasing
+
+## Roadmap
+
+What is missing for a 1.0?
+
+- Allow room-admins to know about all SuperInviteTokens for the given room
+- Web-Frontend to allow anyone to use this (is this even possible?)
 
 ## Development
 
