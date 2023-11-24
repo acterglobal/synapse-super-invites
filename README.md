@@ -54,6 +54,10 @@ You can confirm the installation went well by trying to access the path `/_synap
 
 ## Changelog
 
+**0.8.1** - 2023-11-24:
+
+- ensure deleted tokens stay unaccessible -- also to the owner
+
 **0.8.0** - 2023-11-24:
 
 - documentation about how to use this with the docker-ansible-scripts
