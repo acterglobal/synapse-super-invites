@@ -514,6 +514,77 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         self.assertEqual(channel.code, 404, msg=channel.result)
 
     @override_config(DEFAULT_CONFIG)  # type: ignore[misc]
+    def test_deletion_cant_create_again(self) -> None:
+        _m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request(
+            "GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["tokens"], [])
+
+        # create a new one for testing.
+        channel = self.make_request(
+            "POST",
+            "/_synapse/client/super_invites/tokens",
+            access_token=m_access_token,
+            content={"rooms": [], "create_dm": True},
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        token_data = channel.json_body["token"]
+        self.assertEquals(token_data["accepted_count"], 0)
+        self.assertTrue(token_data["create_dm"])
+        token = token_data["token"]
+
+        channel = self.make_request(
+            "GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(len(channel.json_body["tokens"]), 1)
+
+        # we can access it
+        channel = self.make_request(
+            "GET",
+            "/_synapse/client/super_invites/tokens?token={token}".format(token=token),
+            access_token=m_access_token,
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+
+        # delete it
+        channel = self.make_request(
+            "DELETE",
+            "/_synapse/client/super_invites/tokens?token={token}".format(token=token),
+            access_token=m_access_token,
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+
+        # we can't access it
+        channel = self.make_request(
+            "GET",
+            "/_synapse/client/super_invites/tokens?token={token}".format(token=token),
+            access_token=m_access_token,
+        )
+        self.assertEqual(channel.code, 404, msg=channel.result)
+
+        # and it doesn't show up in the user listing
+        channel = self.make_request(
+            "GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["tokens"], [])
+
+        # and creating it again fails
+        channel = self.make_request(
+            "POST",
+            "/_synapse/client/super_invites/tokens",
+            access_token=m_access_token,
+            content={"rooms": [], "create_dm": True, "token": token},
+        )
+        self.assertEqual(channel.code, 403, msg=channel.result)
+
+    @override_config(DEFAULT_CONFIG)  # type: ignore[misc]
     def test_cant_redeem_my_own(self) -> None:
         _m_id = self.register_user("meeko", "password")
         m_access_token = self.login("meeko", "password")

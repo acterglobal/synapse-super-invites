@@ -17,8 +17,8 @@ from synapse_super_invites.model import Accepted, Room, Token
 
 
 def can_edit_token(token: Token, requester: Requester) -> bool:
-    # kept outside so we can make it more sophisticated later
-    return token.owner == str(requester.user)
+    # Only the owner can edit tokens. And only tokens that haven't been deleted yet
+    return token.owner == str(requester.user) and token.deleted_at is None
 
 
 def serialize_token(token: Token) -> JsonDict:
