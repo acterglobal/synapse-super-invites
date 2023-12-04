@@ -35,6 +35,10 @@ dev = [
   "twine"
 ]
 
+[project.urls]
+Homepage = "https://www.acter.global/"
+Repository = "https://github.com/acterglobal/synapse-super-invites/"
+
 [build-system]
 requires = [
   "setuptools",
