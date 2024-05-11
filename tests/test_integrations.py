@@ -9,6 +9,7 @@ from synapse.types import Dict  # type: ignore[attr-defined]
 from synapse.util import Clock
 from twisted.test.proto_helpers import MemoryReactor
 from twisted.web.resource import Resource
+import pprint
 
 from .test_config import DEFAULT_CONFIG as DEFAULT_MODULE_CFG
 
@@ -52,6 +53,23 @@ class SuperInviteHomeserverTestCase(HomeserverTestCase):  # type: ignore[misc]
             self.module_api.create_room(user_id=user_id, config={}, ratelimit=False)
         )[0]
         return room_id
+
+    # create a room with the given access_token, return the roomId
+    def create_public_room(self, user_id: str) -> str:
+        room_id: str = self.get_success(
+            self.module_api.create_room(user_id=user_id, config={"preset": "public_chat", "visibility" : "public"}, ratelimit=False)
+        )[0]
+        return room_id
+
+    def getState(self, room_data, type_key: str, state_key: str | None) -> Dict | None:
+        for e in reversed(room_data.get('timeline', {}).get('events', [])):
+            if e.get('type') == type_key:
+                if state_key != None:
+                    if e.get('state_key') == state_key:
+                        return e.get('content')
+                else:
+                    return e.get('content')
+        return None
 
 
 class SimpleInviteTests(SuperInviteHomeserverTestCase):
@@ -184,6 +202,82 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
             channel.json_body["rooms"]["join"].keys(), rooms_to_invite
         )
 
+    @override_config(DEFAULT_CONFIG)  # type: ignore[misc]
+    def test_simple_can_join_public_room_test(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request(
+            "GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["tokens"], [])
+
+        # creating five channel
+        _roomA = self.create_room(m_id)
+        roomB = self.create_public_room(m_id) # this is public
+        roomC = self.create_room(m_id)
+        roomD = self.create_room(m_id)
+        _roomE = self.create_room(m_id)
+
+        rooms_to_invite = [
+            roomB,
+            roomC,
+            roomD,
+        ]
+        # create a new one for testing.
+        channel = self.make_request(
+            "POST",
+            "/_synapse/client/super_invites/tokens",
+            access_token=m_access_token,
+            content={"rooms": rooms_to_invite},
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        token_data = channel.json_body["token"]
+        self.assertCountEqual(token_data["rooms"], rooms_to_invite)
+        self.assertEquals(token_data["accepted_count"], 0)
+        self.assertFalse(token_data["create_dm"])
+        token = token_data["token"]
+
+        # redeem the new token
+
+        _f_id = self.register_user("flit", "flit")
+        f_access_token = self.login("flit", "flit")
+
+        channel = self.make_request(
+            "POST",
+            "/_synapse/client/super_invites/redeem?token={token}".format(token=token),
+            access_token=f_access_token,
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        # list the rooms we were invited to
+        self.assertCountEqual(channel.json_body["rooms"], rooms_to_invite)
+
+        # we see it has been redeemed
+        channel = self.make_request(
+            "GET",
+            "/_synapse/client/super_invites/tokens?token={token}".format(token=token),
+            access_token=m_access_token,
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        token_data = channel.json_body["token"]
+        self.assertEquals(token_data["accepted_count"], 1)
+
+        # and flit was invited to these, too:
+        channel = self.make_request(
+            "GET", "/_matrix/client/v3/sync", access_token=f_access_token
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["rooms"].get("invite"), None)
+        self.assertCountEqual(
+            channel.json_body["rooms"]["join"].keys(), rooms_to_invite
+        )
+        # ensure the dm matches what we are expecting
+        public_room = channel.json_body["rooms"]["join"][roomB]
+        join_rule = self.getState(public_room, 'm.room.join_rules', None)
+        self.assertEquals(join_rule['join_rule'], 'public', join_rule)
+
     @override_config(
         {
             "enable_registration": True,
@@ -296,6 +390,17 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         # we are the author of the DM, so we aren't invited, but just added
         self.assertEqual(channel.json_body["rooms"].get("invite"), None)
         self.assertCountEqual(channel.json_body["rooms"]["join"].keys(), [new_dm])
+
+        # ensure the dm matches what we are expecting
+        dm = channel.json_body["rooms"]["join"][new_dm]
+        join_rule = self.getState(dm, 'm.room.join_rules', None)
+        self.assertEquals(join_rule['join_rule'], 'invite', join_rule)
+
+        # and the other has been invited, too
+        member = self.getState(dm, 'm.room.member', '@meeko:test')
+        self.assertEquals(member.get('membership'), 'invite', member)
+        # to the DM
+        self.assertEquals(member.get('is_direct'), True, member)
 
     @override_config(DEFAULT_CONFIG)  # type: ignore[misc]
     def test_simple_invite_token_with_dm_test(self) -> None:
