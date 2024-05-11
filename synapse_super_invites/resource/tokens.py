@@ -63,6 +63,7 @@ class TokensResource(SuperInviteResourceBase):
         payload = parse_json_object_from_request(request)
         token_id = payload.get("token", None)
         create_dm = payload.get("create_dm", False)
+        as_registration_token = payload.get("as_registration_token", True)
 
         token_data = None
         with self.db.begin() as session:
@@ -96,12 +97,23 @@ class TokensResource(SuperInviteResourceBase):
 
             token_data = serialize_token(token)
 
-        if self.config.generate_registration_token:
-            token_id = token_data["token"]
-            # FIXME: it'd be great if we didn't have to resort to using internal args...
-            if not (await self.api._store.registration_token_is_valid(token_id)):
-                await self.api._store.create_registration_token(
-                    token=token_id, uses_allowed=None, expiry_time=None
-                )
+        registration_token = {}
+        if as_registration_token:
+            if not self.config.generate_registration_token:
+                registration_token["valid"] = False
+                registration_token["reason"] = "NOT_ENABLED"
+            else:
+                token_id = token_data["token"]
+                # FIXME: it'd be great if we didn't have to resort to using internal args...
+                if not (await self.api._store.registration_token_is_valid(token_id)):
+                    await self.api._store.create_registration_token(
+                        token=token_id, uses_allowed=None, expiry_time=None
+                    )
+                    registration_token["valid"] = True
+                else:
+                    registration_token["valid"] = True
+        else:
+            registration_token["valid"] = False
+            registration_token["reason"] = "NOT_REQUESTED"
 
-        return 200, {"token": token_data}
+        return 200, {"token": token_data, "registration_token": registration_token}

@@ -9,7 +9,6 @@ from synapse.types import Dict  # type: ignore[attr-defined]
 from synapse.util import Clock
 from twisted.test.proto_helpers import MemoryReactor
 from twisted.web.resource import Resource
-import pprint
 
 from .test_config import DEFAULT_CONFIG as DEFAULT_MODULE_CFG
 
@@ -336,6 +335,8 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         )
         self.assertEqual(channel.code, 200, msg=channel.result)
         token = channel.json_body["token"]
+        registration_token = channel.json_body["registration_token"]
+        self.assertTrue(registration_token["valid"])
 
         # let's see if the token exists and is valid
         channel = self.make_request(
@@ -346,6 +347,78 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         )
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertTrue(channel.json_body["valid"])
+
+        # create a new token for testing, no registration
+        channel = self.make_request(
+            "POST",
+            "/_synapse/client/super_invites/tokens",
+            {"rooms": [], "as_registration_token": False},
+            access_token=m_access_token,
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        token = channel.json_body["token"]
+        registration_token = channel.json_body["registration_token"]
+        self.assertFalse(registration_token["valid"])
+        self.assertEquals(registration_token["reason"], "NOT_REQUESTED")
+
+        # let's see if the token exists and is valid
+        channel = self.make_request(
+            "GET",
+            "/_matrix/client/v1/register/m.login.registration_token/validity?token={token}".format(
+                token=token["token"]
+            ),
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertFalse(channel.json_body["valid"])
+
+    @override_config(
+        {
+            "enable_registration": True,
+            "registration_requires_token": True,
+            "modules": [
+                {
+                    "module": "synapse_super_invites.SynapseSuperInvites",
+                    "config": {
+                        "sql_url": "sqlite:///",
+                        "generate_registration_token": False,
+                    },
+                }
+            ],
+        }
+    )  # type: ignore[misc]
+    def test_simple_invite_as_registration_token_not_available_test(self) -> None:
+        _m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request(
+            "GET", "/_synapse/client/super_invites/tokens", access_token=m_access_token
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["tokens"], [])
+
+        # create a new token for testing.
+        channel = self.make_request(
+            "POST",
+            "/_synapse/client/super_invites/tokens",
+            {"rooms": [], "as_registration_token": True},
+            access_token=m_access_token,
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        token = channel.json_body["token"]
+        registration_token = channel.json_body["registration_token"]
+        self.assertFalse(registration_token["valid"])
+        self.assertEquals(registration_token["reason"], "NOT_ENABLED")
+
+        # let's see if the token exists and is valid
+        channel = self.make_request(
+            "GET",
+            "/_matrix/client/v1/register/m.login.registration_token/validity?token={token}".format(
+                token=token["token"]
+            ),
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertFalse(channel.json_body["valid"])
 
     @override_config(DEFAULT_CONFIG)  # type: ignore[misc]
     def test_simple_invite_token_only_dm_test(self) -> None:
