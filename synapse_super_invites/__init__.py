@@ -8,7 +8,12 @@ from synapse.module_api import ModuleApi
 from twisted.web.static import File
 
 from .config import SynapseSuperInvitesConfig, run_alembic
-from .resource import RedeemResource, TokenInfoResource, TokensResource, WebAccessResource
+from .resource import (
+    RedeemResource,
+    TokenInfoResource,
+    TokensResource,
+    WebAccessResource,
+)
 
 __version__ = "0.8.3"
 

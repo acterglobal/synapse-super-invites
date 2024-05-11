@@ -1,3 +1,5 @@
+from typing import Any
+
 from sqlalchemy import func, select
 from synapse.http.servlet import parse_json_object_from_request, parse_string
 from synapse.http.site import SynapseRequest
@@ -97,7 +99,7 @@ class TokensResource(SuperInviteResourceBase):
 
             token_data = serialize_token(token)
 
-        registration_token = {}
+        registration_token: dict[Any, Any] = {}
         if as_registration_token:
             if not self.config.generate_registration_token:
                 registration_token["valid"] = False

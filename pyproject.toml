@@ -56,6 +56,10 @@ version = {attr = "synapse_super_invites.__version__"}
 [tool.mypy]
 strict = true
 
+[[tool.mypy.overrides]]
+module = "tests.*"
+disable_error_code = ["attr-defined", "index", "union-attr"]
+
 [tool.ruff]
 line-length = 88
 

@@ -52,7 +52,12 @@ class RedeemResource(SuperInviteResourceBase):
 
             if token.create_dm:
                 dm_data = await self.api.create_room(
-                    my_id, config={"preset": "trusted_private_chat", "invite": [owner], "is_direct": True}
+                    my_id,
+                    config={
+                        "preset": "trusted_private_chat",
+                        "invite": [owner],
+                        "is_direct": True,
+                    },
                 )
                 invited_rooms.append(dm_data[0])
 
