@@ -8,9 +8,9 @@ from synapse.module_api import ModuleApi
 from twisted.web.static import File
 
 from .config import SynapseSuperInvitesConfig, run_alembic
-from .resource import RedeemResource, TokensResource, WebAccessResource
+from .resource import RedeemResource, TokenInfoResource, TokensResource, WebAccessResource
 
-__version__ = "0.8.0"
+__version__ = "0.8.3"
 
 PKG_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -26,6 +26,10 @@ class SynapseSuperInvites:
         self.setup()
 
     def setup(self) -> None:
+        self._api.register_web_resource(
+            "/_synapse/client/super_invites/info",
+            TokenInfoResource(self._config, self._api, self._sessions),
+        )
         self._api.register_web_resource(
             "/_synapse/client/super_invites/tokens",
             TokensResource(self._config, self._api, self._sessions),

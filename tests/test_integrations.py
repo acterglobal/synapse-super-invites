@@ -173,6 +173,21 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         _f_id = self.register_user("flit", "flit")
         f_access_token = self.login("flit", "flit")
 
+
+        channel = self.make_request(
+            "GET",
+            "/_synapse/client/super_invites/info?token={token}".format(token=token),
+            access_token=f_access_token,
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        # list the rooms we were invited to
+
+        self.assertEqual(channel.json_body["rooms_count"], 3)
+        self.assertEqual(channel.json_body["create_dm"], False)
+        self.assertEqual(channel.json_body["has_redeemed"], False)
+        self.assertEqual(channel.json_body["inviter"]["user_id"], '@meeko:test')
+        self.assertEqual(channel.json_body["inviter"]["display_name"], 'meeko')
+
         channel = self.make_request(
             "POST",
             "/_synapse/client/super_invites/redeem?token={token}".format(token=token),
@@ -191,6 +206,14 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         self.assertEqual(channel.code, 200, msg=channel.result)
         token_data = channel.json_body["token"]
         self.assertEquals(token_data["accepted_count"], 1)
+
+        channel = self.make_request(
+            "GET",
+            "/_synapse/client/super_invites/info?token={token}".format(token=token),
+            access_token=f_access_token,
+        )
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["has_redeemed"], True)
 
         # and flit was invited to these, too:
         channel = self.make_request(
@@ -606,9 +629,17 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["tokens"], [])
 
-        # redeem the new token
+        # trying to redeem token
         _f_id = self.register_user("flit", "flit")
         f_access_token = self.login("flit", "flit")
+
+        # and it can't be found
+        channel = self.make_request(
+            "GET",
+            "/_synapse/client/super_invites/info?token={token}".format(token=token),
+            access_token=f_access_token,
+        )
+        self.assertEqual(channel.code, 403, msg=channel.result) # access denied
 
         # and it can't be redeemed
         channel = self.make_request(
