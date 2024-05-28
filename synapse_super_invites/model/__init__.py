@@ -62,6 +62,7 @@ class Accepted(Base):
     __tablename__ = "accepted"
     id: Mapped[int] = mapped_column(primary_key=True)
     user: Mapped[str] = mapped_column(String(255))
+    errors: Mapped[str] = mapped_column(String(1024), nullable=True)
 
     token_id = mapped_column(ForeignKey("tokens.token"))
     token = relationship("Token", back_populates="accepted")

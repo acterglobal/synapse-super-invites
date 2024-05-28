@@ -1,3 +1,6 @@
+
+import logging
+
 from sqlalchemy import select
 from synapse.http.servlet import parse_string
 from synapse.http.site import SynapseRequest
@@ -7,6 +10,7 @@ from synapse_super_invites.model import Accepted
 
 from .base import SuperInviteResourceBase, token_query
 
+logger = logging.getLogger(__name__)
 
 class RedeemResource(SuperInviteResourceBase):
     async def _async_render_POST(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
@@ -14,6 +18,7 @@ class RedeemResource(SuperInviteResourceBase):
         my_id = str(requester.user)
         token_id = parse_string(request, "token", required=True)
         invited_rooms = []
+        errors = []
         with self.db.begin() as session:
             token = session.scalar(token_query(token_id))
             if not token:
@@ -35,20 +40,32 @@ class RedeemResource(SuperInviteResourceBase):
 
             owner = token.owner
             for room in token.rooms:
-                await self.api.update_room_membership(
-                    sender=owner,
-                    target=my_id,
-                    room_id=room.nameOrAlias,
-                    new_membership="invite",
-                )
+                try:
+                    await self.api.update_room_membership(
+                        sender=owner,
+                        target=my_id,
+                        room_id=room.nameOrAlias,
+                        new_membership="invite",
+                    )
 
-                await self.api.update_room_membership(
-                    sender=my_id,
-                    target=my_id,
-                    room_id=room.nameOrAlias,
-                    new_membership="join",
-                )
-                invited_rooms.append(room.nameOrAlias)
+                    await self.api.update_room_membership(
+                        sender=my_id,
+                        target=my_id,
+                        room_id=room.nameOrAlias,
+                        new_membership="join",
+                    )
+                    invited_rooms.append(room.nameOrAlias)
+                except Exception as e:
+                    errors.append("{room_id} skipped: '{error}'".format(
+                        room_id=room.nameOrAlias,
+                        error=e))
+                    logger.warning(
+                        "Skipping super invite{token}: Failed to add {user_id} to {room_id}: {error}".format(
+                        token=token_id,
+                        user_id=my_id,
+                        room_id=room.nameOrAlias,
+                        error=e)
+                    )
 
             if token.create_dm:
                 dm_data = await self.api.create_room(
@@ -61,8 +78,12 @@ class RedeemResource(SuperInviteResourceBase):
                 )
                 invited_rooms.append(dm_data[0])
 
+            error_msg = None
+            if len(errors) > 0:
+                error_msg = '\n'.join(errors)[:1024]
+
             # keep the accepted record
-            session.add(Accepted(token=token, user=my_id))
+            session.add(Accepted(token=token, user=my_id, errors=error_msg))
             session.flush()
 
         return 200, {"rooms": invited_rooms}

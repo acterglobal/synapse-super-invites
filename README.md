@@ -104,10 +104,12 @@ To run the unit tests, you can either use:
 tox -e py
 ```
 
-or
-
-```shell
-trial tests
-```
-
 To run the linters and `mypy` type checker, use `./scripts-dev/lint.sh`.
+
+### Generating new db version
+
+Make your changes in `model/`, then run:
+
+```
+alembic revision --autogenerate -m "Description message"
+```
