@@ -56,6 +56,10 @@ You can confirm the installation went well by trying to access the path `/_synap
 
 ## Changelog
 
+**0.8.3** - 2024-05-28:
+
+- [Fix] Skip room if adding fails, but continue with adding to the others, track errors in db
+
 **0.8.2** - 2024-05-11:
 
 - Support for receiving info about a token without redeeming it, #2
