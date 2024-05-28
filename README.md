@@ -1,5 +1,7 @@
 # Super Invitation flow for Synapse Matrix Homeserver
 
+![GitHub CI status main](https://img.shields.io/github/checks-status/acterglobal/synapse-super-invites/main) ![PyPI - Version](https://img.shields.io/pypi/v/synapse_super_invites)
+
 Provides extended support for users to invite other users to rooms via an invitation token
 
 ## Installation
