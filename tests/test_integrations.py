@@ -602,6 +602,14 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         dm = channel.json_body["rooms"]["join"][new_dm]
         join_rule = self.getState(dm, "m.room.join_rules", None)
         self.assertEquals(join_rule["join_rule"], "invite", join_rule)
+        # DMs are encrypted of course:
+        encrypted = self.getState(dm, "m.room.encryption", None)
+        self.assertNotEquals(encrypted, None, "DM isn't marked as encrypted")
+        self.assertEquals(
+            encrypted["algorithm"],
+            "m.megolm.v1.aes-sha2",
+            "Room Encryption not set correctly",
+        )
 
         # and the other has been invited, too
         member = self.getState(dm, "m.room.member", "@meeko:test")

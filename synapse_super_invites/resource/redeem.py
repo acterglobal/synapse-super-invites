@@ -74,6 +74,17 @@ class RedeemResource(SuperInviteResourceBase):
                         "preset": "trusted_private_chat",
                         "invite": [owner],
                         "is_direct": True,
+                        "initial_state": [
+                            {  # Encryption enabled
+                                "type": "m.room.encryption",
+                                "state_key": "",
+                                "content": {
+                                    "algorithm": "m.megolm.v1.aes-sha2",
+                                    "rotation_period_ms": 604800000,
+                                    "rotation_period_msgs": 100,
+                                },
+                            }
+                        ],
                     },
                 )
                 invited_rooms.append(dm_data[0])
