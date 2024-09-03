@@ -56,6 +56,10 @@ You can confirm the installation went well by trying to access the path `/_synap
 
 ## Changelog
 
+**0.8.4** - 2024-09-03:
+
+- [Fix] DMs are encrypted of course, with tests.
+
 **0.8.3** - 2024-05-28:
 
 - [Fix] Skip room if adding fails, but continue with adding to the others, track errors in db
