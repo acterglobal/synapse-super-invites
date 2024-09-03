@@ -1,4 +1,3 @@
-
 import logging
 
 from sqlalchemy import select
@@ -11,6 +10,7 @@ from synapse_super_invites.model import Accepted
 from .base import SuperInviteResourceBase, token_query
 
 logger = logging.getLogger(__name__)
+
 
 class RedeemResource(SuperInviteResourceBase):
     async def _async_render_POST(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
@@ -56,15 +56,18 @@ class RedeemResource(SuperInviteResourceBase):
                     )
                     invited_rooms.append(room.nameOrAlias)
                 except Exception as e:
-                    errors.append("{room_id} skipped: '{error}'".format(
-                        room_id=room.nameOrAlias,
-                        error=e))
+                    errors.append(
+                        "{room_id} skipped: '{error}'".format(
+                            room_id=room.nameOrAlias, error=e
+                        )
+                    )
                     logger.warning(
                         "Skipping super invite{token}: Failed to add {user_id} to {room_id}: {error}".format(
-                        token=token_id,
-                        user_id=my_id,
-                        room_id=room.nameOrAlias,
-                        error=e)
+                            token=token_id,
+                            user_id=my_id,
+                            room_id=room.nameOrAlias,
+                            error=e,
+                        )
                     )
 
             if token.create_dm:
@@ -91,7 +94,7 @@ class RedeemResource(SuperInviteResourceBase):
 
             error_msg = None
             if len(errors) > 0:
-                error_msg = '\n'.join(errors)[:1024]
+                error_msg = "\n".join(errors)[:1024]
 
             # keep the accepted record
             session.add(Accepted(token=token, user=my_id, errors=error_msg))

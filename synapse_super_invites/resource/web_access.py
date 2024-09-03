@@ -29,7 +29,7 @@ class WebAccessResource(DirectServeHtmlResource):
         js_bytes = response_object
 
         # The response code must always be set, for logging purposes.
-        request.setResponseCode(code)  # type: ignore[no-untyped-call]
+        request.setResponseCode(code)
 
         # could alternatively use request.notifyFinish() and flip a flag when
         # the Deferred fires, but since the flag is RIGHT THERE it seems like

@@ -55,11 +55,12 @@ class SuperInviteHomeserverTestCase(HomeserverTestCase):  # type: ignore[misc]
         )[0]
         return room_id
 
-
     # leave a room with the given access_token
-    def leave_room(self, user_id: str, room_id: str):
+    def leave_room(self, user_id: str, room_id: str) -> None:
         self.get_success(
-            self.module_api.update_room_membership(sender=user_id, target=user_id, room_id=room_id, new_membership='leave')
+            self.module_api.update_room_membership(
+                sender=user_id, target=user_id, room_id=room_id, new_membership="leave"
+            )
         )
 
     # create a room with the given access_token, return the roomId
@@ -238,7 +239,6 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
             channel.json_body["rooms"]["join"].keys(), rooms_to_invite
         )
 
-
     @override_config(DEFAULT_CONFIG)  # type: ignore[misc]
     def test_skip_if_broken_now(self) -> None:
         m_id = self.register_user("meeko", "password")
@@ -291,7 +291,7 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         self.assertEqual(channel.code, 200, msg=channel.result)
         # list the rooms we were invited to
 
-        self.assertEqual(channel.json_body["rooms_count"], 3) # info shows 3
+        self.assertEqual(channel.json_body["rooms_count"], 3)  # info shows 3
         self.assertEqual(channel.json_body["create_dm"], False)
         self.assertEqual(channel.json_body["has_redeemed"], False)
         self.assertEqual(channel.json_body["inviter"]["user_id"], "@meeko:test")
@@ -304,7 +304,9 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         )
         self.assertEqual(channel.code, 200, msg=channel.result)
         # list the rooms we were invited to
-        self.assertCountEqual(channel.json_body["rooms"], rooms_to_invite) # but working are only two
+        self.assertCountEqual(
+            channel.json_body["rooms"], rooms_to_invite
+        )  # but working are only two
 
         # we see it has been redeemed
         channel = self.make_request(
@@ -333,7 +335,6 @@ class SimpleInviteTests(SuperInviteHomeserverTestCase):
         self.assertCountEqual(
             channel.json_body["rooms"]["join"].keys(), rooms_to_invite
         )
-
 
     @override_config(DEFAULT_CONFIG)  # type: ignore[misc]
     def test_simple_can_join_public_room_test(self) -> None:
