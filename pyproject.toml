@@ -1,6 +1,6 @@
 [project]
 name = "synapse_super_invites"
-description = "Provides extended support for users to invite other users to rooms via an inventation token"
+description = "Provides extended support for users to invite other users to rooms via an invitation token"
 readme = "README.md"
 
 dynamic = ["version"]

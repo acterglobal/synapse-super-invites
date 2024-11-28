@@ -12,6 +12,11 @@ class ConfigParsingTests(TestCase):
         config = SynapseSuperInvites.parse_config(DEFAULT_CONFIG)
         self.assertEqual(config.generate_registration_token, False)
 
+    def test_link_share_config(self) -> None:
+        config = SynapseSuperInvites.parse_config({"sql_url": "sqlite:///", "share_link_generator": {
+                                                  "url_prefix": "https://preview.example.com/", "target_path": "/tmp"}})
+        self.assertEqual(config.generate_registration_token, False)
+
     def test_fails_no_sql(self) -> None:
         with self.assertRaises(ConfigError):
             SynapseSuperInvites.parse_config({})

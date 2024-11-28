@@ -7,7 +7,7 @@ from synapse.config import ConfigError
 from synapse.module_api import ModuleApi
 from twisted.web.static import File
 
-from .config import SynapseSuperInvitesConfig, run_alembic
+from .config import SynapseSuperInvitesConfig, ShareLinkGeneratorConfig,  run_alembic
 from .resource import (
     RedeemResource,
     TokenInfoResource,
@@ -43,6 +43,7 @@ class SynapseSuperInvites:
             "/_synapse/client/super_invites/redeem",
             RedeemResource(self._config, self._api, self._sessions),
         )
+
         if self._config.enable_web:
             self._api.register_web_resource(
                 "/_synapse/client/super_invites/access.js",
@@ -53,8 +54,23 @@ class SynapseSuperInvites:
                 File(os.path.join(PKG_DIR, "static/")),
             )
 
+        if self._config.share_link_generator is not None:
+            self._api.register_web_resource(
+                "/_synapse/client/share_link/",
+                ShareLink(self._config.share_link_generator,
+                          self._api, self._sessions),
+            )
+
     @staticmethod
     def parse_config(config: Dict[str, Any]) -> SynapseSuperInvitesConfig:
+        share_link_cfg = config.get('share_link_generator', None)
+        if share_link_cfg is not None:
+            try:
+                config['share_link_generator'] = ShareLinkGeneratorConfig(
+                    **share_link_cfg)
+            except TypeError as e:
+                raise ConfigError(str(e))
+
         try:
             return SynapseSuperInvitesConfig(**config)
         except TypeError as e:
