@@ -1,3 +1,4 @@
+from synapse.types import Dict, Any, Tuple, JsonDict, Requester
 import re
 import hashlib
 from synapse.http.server import (
@@ -12,9 +13,11 @@ from synapse.http.servlet import parse_json_object_from_request, parse_string
 from synapse.module_api import ModuleApi
 from ..config import ShareLinkGeneratorConfig
 from string import Template
-# type: ignore[attr-defined]
-from synapse.types import Dict, Any, Tuple, JsonDict, Requester
+import os
 
+MY_DIR = os.path.dirname(os.path.realpath(__file__))
+
+# type: ignore[attr-defined]
 
 user_id_query_matcher = re.compile(r'(?:^|&)userId=[^&]*&?')
 
@@ -28,9 +31,17 @@ class ShareLink(DirectServeJsonResource):
     ):
         super().__init__()
         self.config = config
-        if config.template_path is not None:
-            pass
+        with open(config.template_path or
+                  os.path.join(MY_DIR, "share_link_template.html"), ) as f:
+            self.template = Template(f.read())
+        self.dir_path = config.target_path
         self.api = api
+
+    def _generate_template(self, targetHash: str, **params):
+        html_name = os.path.join(
+            self.dir_path, '{fn}.html'.format(fn=targetHash))
+        with open(html_name, mode='w') as f:
+            f.write(self.template.safe_substitute(**params))
 
     def _gen_uri(self, user_id: str, path: str, query=None) -> Tuple[str, str]:
         if query is not None and len(query) > 0:
@@ -58,10 +69,13 @@ class ShareLink(DirectServeJsonResource):
         )
 
     def _gen_spaceObject(self, requester: Requester, payload: Dict[str, Any]) -> Tuple[int, JsonDict]:
+
         path = "o/{roomId}/{objectType}/{objectId}".format(**payload)
         user_id = requester.user.to_string()[1:]  # w/o leading 0;
-        _uriHash, final_url = self._gen_uri(
+        targetHash, final_url = self._gen_uri(
             user_id=user_id, path=path, query=payload.get('query'))
+
+        self._generate_template(targetHash, url=final_url)
 
         return 200, {
             'url': final_url

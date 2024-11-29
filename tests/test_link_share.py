@@ -3,11 +3,18 @@ from .test_integrations import SuperInviteHomeserverTestCase
 
 # type: ignore[import-untyped]
 from matrix_synapse_testutils.unittest import override_config
-import hashlib
 from tempfile import TemporaryDirectory
+# type: ignore[attr-defined]
+from synapse.types import Dict, Any, Tuple, JsonDict, Requester
+
+import hashlib
+import atexit
+import os
 
 test_dir = TemporaryDirectory()
 URL_PREFIX = "https://app.example.com/p/"
+
+atexit.register(test_dir.cleanup)
 
 TEST_CONFIG = {
     "modules": [
@@ -28,6 +35,9 @@ TEST_CONFIG = {
 class ShareLinkTests(SuperInviteHomeserverTestCase):
 
     def make_target_uri(self, path: str, user_id='', query='') -> str:
+        return self.make_hash_and_uri(path, user_id=user_id, query=query)[1]
+
+    def make_hash_and_uri(self, path: str, user_id='', query='') -> Tuple[str, str]:
         if user_id[0] == '@':
             user_id = user_id[1:]  # remove leading `@`
         uriFormatter = "{uriPrefix}{hash}?{query}#{path}"
@@ -42,12 +52,20 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
             ).encode()
         ).hexdigest()
 
-        return uriFormatter.format(
+        return targetHash, uriFormatter.format(
             uriPrefix=URL_PREFIX,
-            hash=targetHash,  # no hash here
+            hash=targetHash,  # add the hash
             query=q,
             path=path,
         )
+
+    def ensureTargetFiles(self, baseName: str, targetPath: str = None):
+        directory = targetPath or test_dir.name
+        for ext in ['html']:  # , 'png', 'json']:
+            target_file = os.path.join(
+                directory, '{b}.{ext}'.format(b=baseName, ext=ext))
+            self.assertTrue(os.path.exists(target_file),
+                            '{ext} File {f} not found'.format(f=target_file, ext=ext))
 
     @override_config(TEST_CONFIG)  # type: ignore[misc]
     def test_pin_object(self) -> None:
@@ -65,9 +83,13 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
             },
         )
 
+        targetHash, targetUri = self.make_hash_and_uri(
+            "o/roomId/pin/objectId", user_id=m_id)
+
         self.assertEqual(channel.code, 200, msg=channel.result)
-        self.assertEqual(channel.json_body["url"], self.make_target_uri(
-            "o/roomId/pin/objectId", user_id=m_id))
+        self.assertEqual(channel.json_body["url"], targetUri)
+
+        self.ensureTargetFiles(targetHash)
 
     @override_config(TEST_CONFIG)  # type: ignore[misc]
     def test_task_list_object(self) -> None:
