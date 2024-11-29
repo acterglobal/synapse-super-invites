@@ -27,15 +27,17 @@ TEST_CONFIG = {
 
 class ShareLinkTests(SuperInviteHomeserverTestCase):
 
-    def make_target_uri(self, path: str, user_id='') -> str:
-
+    def make_target_uri(self, path: str, user_id='', query='') -> str:
+        if user_id[0] == '@':
+            user_id = user_id[1:]  # remove leading `@`
         uriFormatter = "{uriPrefix}{hash}?{query}#{path}"
-
+        q = '{query}&userId={userId}'.format(query=query, userId=user_id) if len(
+            query) != 0 else 'userId={userId}'.format(userId=user_id)
         targetHash = hashlib.sha1(
             uriFormatter.format(
                 uriPrefix=URL_PREFIX,
                 hash='',  # no hash here
-                query='userId={userId}'.format(userId=user_id),
+                query=q,
                 path=path,
             ).encode()
         ).hexdigest()
@@ -43,7 +45,7 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
         return uriFormatter.format(
             uriPrefix=URL_PREFIX,
             hash=targetHash,  # no hash here
-            query='userId={userId}'.format(userId=user_id),
+            query=q,
             path=path,
         )
 
@@ -66,3 +68,77 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["url"], self.make_target_uri(
             "o/roomId/pin/objectId", user_id=m_id))
+
+    @override_config(TEST_CONFIG)  # type: ignore[misc]
+    def test_with_query_preview(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request(
+            "PUT", "/_synapse/client/share_link/", access_token=m_access_token,
+            content={
+                "type": "spaceObject",
+                "objectId": "objectId",
+                "objectType": "pin",
+                "roomId": "roomId",
+                "query": 'roomDisplayName=My+cool+space&title=Pin+Title'
+            },
+        )
+
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["url"], self.make_target_uri(
+            "o/roomId/pin/objectId", user_id=m_id, query='roomDisplayName=My+cool+space&title=Pin+Title',))
+
+    @override_config(TEST_CONFIG)  # type: ignore[misc]
+    def test_cant_spoof_user_id(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # trying to add a userId
+        channel = self.make_request(
+            "PUT", "/_synapse/client/share_link/", access_token=m_access_token,
+            content={
+                "type": "spaceObject",
+                "objectId": "objectId",
+                "objectType": "pin",
+                "roomId": "roomId",
+                "query": 'roomDisplayName=test+room&userId=otherId:example.org'
+            },
+        )
+
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["url"], self.make_target_uri(
+            "o/roomId/pin/objectId", user_id=m_id, query='roomDisplayName=test+room'))
+
+        # lets try at the beginning
+        channel = self.make_request(
+            "PUT", "/_synapse/client/share_link/", access_token=m_access_token,
+            content={
+                "type": "spaceObject",
+                "objectId": "objectId",
+                "objectType": "pin",
+                "roomId": "roomId",
+                "query": 'userId=notallowed:example.org&roomDisplayName=test+room'
+            },
+        )
+
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["url"], self.make_target_uri(
+            "o/roomId/pin/objectId", user_id=m_id, query='roomDisplayName=test+room'))
+
+        # lets try multiple times
+        channel = self.make_request(
+            "PUT", "/_synapse/client/share_link/", access_token=m_access_token,
+            content={
+                "type": "spaceObject",
+                "objectId": "objectId",
+                "objectType": "pin",
+                "roomId": "roomId",
+                "query": 'userId=notallowed:example.org&roomDisplayName=test+room&userId=nope:example.org'
+            },
+        )
+
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["url"], self.make_target_uri(
+            "o/roomId/pin/objectId", user_id=m_id, query='roomDisplayName=test+room'))

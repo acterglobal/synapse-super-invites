@@ -13,6 +13,9 @@ from synapse.http.server import (
 )
 
 import hashlib
+import re
+
+user_id_query_matcher = re.compile(r'(?:^|&)userId=[^&]*&?')
 
 uriFormatter = "{uriPrefix}{hash}?{query}#{path}"
 
@@ -28,37 +31,47 @@ class ShareLink(DirectServeJsonResource):
             pass
         self.api = api
 
+    def _gen_uri(self, user_id: str, path: str, query=None) -> Tuple[str, str]:
+        if query is not None and len(query) > 0:
+            q = '{query}&userId={user_id}'.format(
+                # there was a userId in the query, remove it.
+                query=re.sub(user_id_query_matcher, '', query),
+                user_id=user_id)
+        else:
+            q = 'userId={user_id}'.format(user_id=user_id)
+        url_prefix = self.config.url_prefix
+        uriHash = hashlib.sha1(
+            uriFormatter.format(
+                uriPrefix=url_prefix,
+                hash='',  # no hash here
+                query=q,
+                path=path,
+            ).encode()
+        ).hexdigest()
+
+        return uriHash, uriFormatter.format(
+            uriPrefix=url_prefix,
+            hash=uriHash,
+            query=q,
+            path=path,
+        )
+
     async def _async_render_PUT(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
         # ensure logged int
         requester = await self.api.get_user_by_req(request, allow_guest=False)
         payload = parse_json_object_from_request(request)
-        url_prefix = self.config.url_prefix
         uri_type = payload.get('type', None)
         if uri_type == "spaceObject":
             path = "o/{roomId}/{objectType}/{objectId}".format(**payload)
-
         else:
             return 403, {
                 "error": "unsupported object type='{uri_type}' ".format(uri_type=uri_type),
                 "errcode": "NOT_SUPPORTED",
             }
 
-        query = 'userId={userId}'.format(userId=requester.user.to_string())
-        uriHash = hashlib.sha1(
-            uriFormatter.format(
-                uriPrefix=url_prefix,
-                hash='',  # no hash here
-                query=query,
-                path=path,
-            ).encode()
-        ).hexdigest()
-
-        final_url = uriFormatter.format(
-            uriPrefix=url_prefix,
-            hash=uriHash,
-            query=query,
-            path=path,
-        )
+        user_id = requester.user.to_string()[1:]  # w/o leading 0;
+        _uriHash, final_url = self._gen_uri(
+            user_id=user_id, path=path, query=payload.get('query'))
 
         return 200, {
             'url': final_url
