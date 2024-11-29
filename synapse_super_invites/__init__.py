@@ -13,6 +13,7 @@ from .resource import (
     TokenInfoResource,
     TokensResource,
     WebAccessResource,
+    ShareLink,
 )
 
 __version__ = "0.8.4"
@@ -58,7 +59,7 @@ class SynapseSuperInvites:
             self._api.register_web_resource(
                 "/_synapse/client/share_link/",
                 ShareLink(self._config.share_link_generator,
-                          self._api, self._sessions),
+                          self._api),
             )
 
     @staticmethod
