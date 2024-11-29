@@ -26,6 +26,27 @@ TEST_CONFIG = {
 
 
 class ShareLinkTests(SuperInviteHomeserverTestCase):
+
+    def make_target_uri(self, path: str, user_id='') -> str:
+
+        uriFormatter = "{uriPrefix}{hash}?{query}#{path}"
+
+        targetHash = hashlib.sha1(
+            uriFormatter.format(
+                uriPrefix=URL_PREFIX,
+                hash='',  # no hash here
+                query='userId={userId}'.format(userId=user_id),
+                path=path,
+            ).encode()
+        ).hexdigest()
+
+        return uriFormatter.format(
+            uriPrefix=URL_PREFIX,
+            hash=targetHash,  # no hash here
+            query='userId={userId}'.format(userId=user_id),
+            path=path,
+        )
+
     @override_config(TEST_CONFIG)  # type: ignore[misc]
     def test_basic(self) -> None:
         m_id = self.register_user("meeko", "password")
@@ -42,21 +63,6 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
             },
         )
 
-        uriFormatter = "{uriPrefix}{hash}?{query}#{path}"
-
-        targetHash = hashlib.sha1(
-            uriFormatter.format(
-                uriPrefix=URL_PREFIX,
-                hash='',  # no hash here
-                query='userId={userId}'.format(userId=m_id),
-                path="o/roomId/pin/objectId",
-            ).encode()
-        ).hexdigest()
         self.assertEqual(channel.code, 200, msg=channel.result)
-        self.assertEqual(channel.json_body["url"],
-                         uriFormatter.format(
-            uriPrefix=URL_PREFIX,
-            hash=targetHash,  # no hash here
-            query='userId={userId}'.format(userId=m_id),
-            path="o/roomId/pin/objectId",
-        ))
+        self.assertEqual(channel.json_body["url"], self.make_target_uri(
+            "o/roomId/pin/objectId", user_id=m_id))
