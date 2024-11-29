@@ -65,6 +65,12 @@ class ShareLink(DirectServeJsonResource):
             path = "o/{roomId}/{objectType}/{objectId}".format(**payload)
         elif uri_type == "superInvite":
             path = "i/{server}/{inviteCode}".format(**payload)
+        elif uri_type == "roomId":
+            path = "roomid/{roomId}".format(**payload)
+        elif uri_type == "roomAlias":
+            path = "r/{roomAlias}".format(**payload)
+        elif uri_type == "userId":
+            path = "u/{userId}".format(**payload)
         else:
             return 403, {
                 "error": "unsupported object type='{uri_type}' ".format(uri_type=uri_type),

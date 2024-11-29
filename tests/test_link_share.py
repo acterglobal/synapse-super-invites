@@ -243,3 +243,60 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["url"], self.make_target_uri(
             "i/acter.global/superInviteCode", user_id=m_id, query="userDisplayName=superBen&rooms=4"))
+
+    @override_config(TEST_CONFIG)  # type: ignore[misc]
+    def test_roomid_with_preview_data(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request(
+            "PUT", "/_synapse/client/share_link/", access_token=m_access_token,
+            content={
+                "type": "roomId",
+                "roomId": "room:acter.global",
+                "query": "roomDisplayName=super+room&via=acter.global"
+            },
+        )
+
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["url"], self.make_target_uri(
+            "roomid/room:acter.global", user_id=m_id, query="roomDisplayName=super+room&via=acter.global"))
+
+    @override_config(TEST_CONFIG)  # type: ignore[misc]
+    def test_roomalias_with_preview_data(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request(
+            "PUT", "/_synapse/client/share_link/", access_token=m_access_token,
+            content={
+                "type": "roomAlias",
+                "roomAlias": "roomalias:acter.global",
+                "query": "roomDisplayName=super+room&via=acter.global"
+            },
+        )
+
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["url"], self.make_target_uri(
+            "r/roomalias:acter.global", user_id=m_id, query="roomDisplayName=super+room&via=acter.global"))
+
+    @override_config(TEST_CONFIG)  # type: ignore[misc]
+    def test_roomalias_with_preview_data(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request(
+            "PUT", "/_synapse/client/share_link/", access_token=m_access_token,
+            content={
+                "type": "userId",
+                "userId": "alice:acter.global",
+                "query": "userDisplayName=Alice&via=acter.global"
+            },
+        )
+
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["url"], self.make_target_uri(
+            "u/alice:acter.global", user_id=m_id, query="userDisplayName=Alice&via=acter.global"))
