@@ -1,9 +1,5 @@
-from ..config import ShareLinkGeneratorConfig
-from string import Template
-from synapse.types import Any, Tuple, JsonDict  # type: ignore[attr-defined]
-from synapse.module_api import ModuleApi
-from synapse.http.servlet import parse_json_object_from_request, parse_string
-from synapse.http.site import SynapseRequest
+import re
+import hashlib
 from synapse.http.server import (
     DirectServeHtmlResource,
     finish_request,
@@ -11,9 +7,14 @@ from synapse.http.server import (
     set_clickjacking_protection_headers,
     DirectServeJsonResource,
 )
+from synapse.http.site import SynapseRequest
+from synapse.http.servlet import parse_json_object_from_request, parse_string
+from synapse.module_api import ModuleApi
+from ..config import ShareLinkGeneratorConfig
+from string import Template
+# type: ignore[attr-defined]
+from synapse.types import Dict, Any, Tuple, JsonDict, Requester
 
-import hashlib
-import re
 
 user_id_query_matcher = re.compile(r'(?:^|&)userId=[^&]*&?')
 
@@ -56,27 +57,8 @@ class ShareLink(DirectServeJsonResource):
             path=path,
         )
 
-    async def _async_render_PUT(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
-        # ensure logged int
-        requester = await self.api.get_user_by_req(request, allow_guest=False)
-        payload = parse_json_object_from_request(request)
-        uri_type = payload.get('type', None)
-        if uri_type == "spaceObject":
-            path = "o/{roomId}/{objectType}/{objectId}".format(**payload)
-        elif uri_type == "superInvite":
-            path = "i/{server}/{inviteCode}".format(**payload)
-        elif uri_type == "roomId":
-            path = "roomid/{roomId}".format(**payload)
-        elif uri_type == "roomAlias":
-            path = "r/{roomAlias}".format(**payload)
-        elif uri_type == "userId":
-            path = "u/{userId}".format(**payload)
-        else:
-            return 403, {
-                "error": "unsupported object type='{uri_type}' ".format(uri_type=uri_type),
-                "errcode": "NOT_SUPPORTED",
-            }
-
+    def _gen_spaceObject(self, requester: Requester, payload: Dict[str, Any]) -> Tuple[int, JsonDict]:
+        path = "o/{roomId}/{objectType}/{objectId}".format(**payload)
         user_id = requester.user.to_string()[1:]  # w/o leading 0;
         _uriHash, final_url = self._gen_uri(
             user_id=user_id, path=path, query=payload.get('query'))
@@ -84,3 +66,64 @@ class ShareLink(DirectServeJsonResource):
         return 200, {
             'url': final_url
         }
+
+    def _gen_superInvite(self, requester: Requester, payload: Dict[str, Any]) -> Tuple[int, JsonDict]:
+        path = "i/{server}/{inviteCode}".format(**payload)
+        user_id = requester.user.to_string()[1:]  # w/o leading 0;
+        _uriHash, final_url = self._gen_uri(
+            user_id=user_id, path=path, query=payload.get('query'))
+
+        return 200, {
+            'url': final_url
+        }
+
+    def _gen_roomId(self, requester: Requester, payload: Dict[str, Any]) -> Tuple[int, JsonDict]:
+        path = "roomid/{roomId}".format(**payload)
+        user_id = requester.user.to_string()[1:]  # w/o leading 0;
+        _uriHash, final_url = self._gen_uri(
+            user_id=user_id, path=path, query=payload.get('query'))
+
+        return 200, {
+            'url': final_url
+        }
+
+    def _gen_roomAlias(self, requester: Requester, payload: Dict[str, Any]) -> Tuple[int, JsonDict]:
+        path = "r/{roomAlias}".format(**payload)
+        user_id = requester.user.to_string()[1:]  # w/o leading 0;
+        _uriHash, final_url = self._gen_uri(
+            user_id=user_id, path=path, query=payload.get('query'))
+
+        return 200, {
+            'url': final_url
+        }
+
+    def _gen_userId(self, requester: Requester, payload: Dict[str, Any]) -> Tuple[int, JsonDict]:
+        path = "u/{userId}".format(**payload)
+        user_id = requester.user.to_string()[1:]  # w/o leading 0;
+        _uriHash, final_url = self._gen_uri(
+            user_id=user_id, path=path, query=payload.get('query'))
+
+        return 200, {
+            'url': final_url
+        }
+
+    async def _async_render_PUT(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
+        # ensure logged int
+        requester = await self.api.get_user_by_req(request, allow_guest=False)
+        payload = parse_json_object_from_request(request)
+        uri_type = payload.get('type', None)
+        if uri_type == "spaceObject":
+            return self._gen_spaceObject(requester, payload)
+        elif uri_type == "superInvite":
+            return self._gen_superInvite(requester, payload)
+        elif uri_type == "roomId":
+            return self._gen_roomId(requester, payload)
+        elif uri_type == "roomAlias":
+            return self._gen_roomAlias(requester, payload)
+        elif uri_type == "userId":
+            return self._gen_userId(requester, payload)
+        else:
+            return 403, {
+                "error": "unsupported object type='{uri_type}' ".format(uri_type=uri_type),
+                "errcode": "NOT_SUPPORTED",
+            }
