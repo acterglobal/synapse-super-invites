@@ -50,7 +50,7 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
         )
 
     @override_config(TEST_CONFIG)  # type: ignore[misc]
-    def test_basic(self) -> None:
+    def test_pin_object(self) -> None:
         m_id = self.register_user("meeko", "password")
         m_access_token = self.login("meeko", "password")
 
@@ -68,6 +68,66 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["url"], self.make_target_uri(
             "o/roomId/pin/objectId", user_id=m_id))
+
+    @override_config(TEST_CONFIG)  # type: ignore[misc]
+    def test_task_list_object(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request(
+            "PUT", "/_synapse/client/share_link/", access_token=m_access_token,
+            content={
+                "type": "spaceObject",
+                "objectId": "randomId",
+                "objectType": "taskList",
+                "roomId": "myRoomId:example.org",
+            },
+        )
+
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["url"], self.make_target_uri(
+            "o/myRoomId:example.org/taskList/randomId", user_id=m_id))
+
+    @override_config(TEST_CONFIG)  # type: ignore[misc]
+    def test_boost_object(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request(
+            "PUT", "/_synapse/client/share_link/", access_token=m_access_token,
+            content={
+                "type": "spaceObject",
+                "objectId": "boostId",
+                "objectType": "boost",
+                "roomId": "newRoom:acter.global",
+            },
+        )
+
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["url"], self.make_target_uri(
+            "o/newRoom:acter.global/boost/boostId", user_id=m_id))
+
+    @override_config(TEST_CONFIG)  # type: ignore[misc]
+    def test_calenderEvent_object(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request(
+            "PUT", "/_synapse/client/share_link/", access_token=m_access_token,
+            content={
+                "type": "spaceObject",
+                "objectId": "idOfEvent",
+                "objectType": "calendarEvent",
+                "roomId": "newRoom:acter.global",
+            },
+        )
+
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["url"], self.make_target_uri(
+            "o/newRoom:acter.global/calendarEvent/idOfEvent", user_id=m_id))
 
     @override_config(TEST_CONFIG)  # type: ignore[misc]
     def test_with_query_preview(self) -> None:
@@ -89,6 +149,27 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["url"], self.make_target_uri(
             "o/roomId/pin/objectId", user_id=m_id, query='roomDisplayName=My+cool+space&title=Pin+Title',))
+
+    @override_config(TEST_CONFIG)  # type: ignore[misc]
+    def test_with_query_via(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request(
+            "PUT", "/_synapse/client/share_link/", access_token=m_access_token,
+            content={
+                "type": "spaceObject",
+                "objectId": "objectId",
+                "objectType": "pin",
+                "roomId": "roomId",
+                "query": 'via=acer.global&via=matrix.org'
+            },
+        )
+
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["url"], self.make_target_uri(
+            "o/roomId/pin/objectId", user_id=m_id, query='via=acer.global&via=matrix.org',))
 
     @override_config(TEST_CONFIG)  # type: ignore[misc]
     def test_cant_spoof_user_id(self) -> None:
@@ -142,3 +223,23 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["url"], self.make_target_uri(
             "o/roomId/pin/objectId", user_id=m_id, query='roomDisplayName=test+room'))
+
+    @override_config(TEST_CONFIG)  # type: ignore[misc]
+    def test_super_invite_with_preview_data(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request(
+            "PUT", "/_synapse/client/share_link/", access_token=m_access_token,
+            content={
+                "type": "superInvite",
+                "inviteCode": "superInviteCode",
+                "server": "acter.global",
+                "query": "userDisplayName=superBen&rooms=4"
+            },
+        )
+
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["url"], self.make_target_uri(
+            "i/acter.global/superInviteCode", user_id=m_id, query="userDisplayName=superBen&rooms=4"))
