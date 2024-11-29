@@ -12,7 +12,17 @@ from synapse.http.site import SynapseRequest
 from synapse.http.servlet import parse_json_object_from_request, parse_string
 from synapse.module_api import ModuleApi
 from ..config import ShareLinkGeneratorConfig
-from string import Template
+
+from jinja2 import (
+    Environment,
+    PackageLoader,
+    ChoiceLoader,
+    FileSystemLoader,
+    select_autoescape,
+)
+from PIL import Image, ImageDraw, ImageFont
+import qrcode
+import qrcode.image.svg
 import os
 
 MY_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -22,6 +32,7 @@ MY_DIR = os.path.dirname(os.path.realpath(__file__))
 user_id_query_matcher = re.compile(r'(?:^|&)userId=[^&]*&?')
 
 uriFormatter = "{uriPrefix}{hash}?{query}#{path}"
+acterUriFormatter = "acter:{path}?{query}"
 
 
 class ShareLink(DirectServeJsonResource):
@@ -31,19 +42,39 @@ class ShareLink(DirectServeJsonResource):
     ):
         super().__init__()
         self.config = config
-        with open(config.template_path or
-                  os.path.join(MY_DIR, "share_link_template.html"), ) as f:
-            self.template = Template(f.read())
+        loaders = [PackageLoader("synapse_super_invites")]
+        if config.template_path is not None:
+            loaders.insert(0, FileSystemLoader(config.template_path))
+
+        self.env = Environment(
+            loader=ChoiceLoader(loaders),
+            autoescape=select_autoescape()
+        )
+        self.template = self.env.get_template("share_link.html")
         self.dir_path = config.target_path
         self.api = api
 
-    def _generate_template(self, targetHash: str, **params):
-        html_name = os.path.join(
-            self.dir_path, '{fn}.html'.format(fn=targetHash))
-        with open(html_name, mode='w') as f:
-            f.write(self.template.safe_substitute(**params))
+    def _generate_qrcode(self, uri: str) -> str:
+        qr = qrcode.QRCode(image_factory=qrcode.image.svg.SvgPathFillImage)
+        qr.add_data(uri)
+        qr.make(fit=True)
+        img = qr.make_image()
+        return img.to_string(encoding='unicode')
 
-    def _gen_uri(self, user_id: str, path: str, query=None) -> Tuple[str, str]:
+    def _generate_image(self, targetHash: str, **params):
+        im = PIL.Image.new('RGB', (1200, 630), 'white')
+        file_name = os.path.join(
+            self.dir_path, '{fn}.png'.format(fn=targetHash))
+        with open(file_name, mode='w') as f:
+            im.save(f)
+
+    def _generate_template(self, targetHash: str, **params):
+        file_name = os.path.join(
+            self.dir_path, '{fn}.html'.format(fn=targetHash))
+        with open(file_name, mode='w') as f:
+            f.write(self.template.render(**params))
+
+    def _gen_uri(self, user_id: str, path: str, query=None) -> Tuple[str, str, str]:
         if query is not None and len(query) > 0:
             q = '{query}&userId={user_id}'.format(
                 # there was a userId in the query, remove it.
@@ -61,7 +92,9 @@ class ShareLink(DirectServeJsonResource):
             ).encode()
         ).hexdigest()
 
-        return uriHash, uriFormatter.format(
+        return uriHash, acterUriFormatter.format(
+            query=q, path=path
+        ), uriFormatter.format(
             uriPrefix=url_prefix,
             hash=uriHash,
             query=q,
@@ -72,53 +105,91 @@ class ShareLink(DirectServeJsonResource):
 
         path = "o/{roomId}/{objectType}/{objectId}".format(**payload)
         user_id = requester.user.to_string()[1:]  # w/o leading 0;
-        targetHash, final_url = self._gen_uri(
+        targetHash, acter_uri, final_url = self._gen_uri(
             user_id=user_id, path=path, query=payload.get('query'))
 
-        self._generate_template(targetHash, url=final_url)
+        qrcode = self._generate_qrcode(acter_uri)
+        self._generate_template(targetHash,
+                                url=final_url,
+                                acter_uri=acter_uri,
+                                qrcode=qrcode
+                                )
 
         return 200, {
-            'url': final_url
+            'url': final_url,
+            'targetUri': acter_uri,
         }
 
     def _gen_superInvite(self, requester: Requester, payload: Dict[str, Any]) -> Tuple[int, JsonDict]:
         path = "i/{server}/{inviteCode}".format(**payload)
         user_id = requester.user.to_string()[1:]  # w/o leading 0;
-        _uriHash, final_url = self._gen_uri(
+        targetHash, acter_uri, final_url = self._gen_uri(
             user_id=user_id, path=path, query=payload.get('query'))
 
+        qrcode = self._generate_qrcode(acter_uri)
+        self._generate_template(targetHash,
+                                url=final_url,
+                                acter_uri=acter_uri,
+                                qrcode=qrcode
+                                )
+
         return 200, {
-            'url': final_url
+            'url': final_url,
+            'targetUri': acter_uri,
         }
 
     def _gen_roomId(self, requester: Requester, payload: Dict[str, Any]) -> Tuple[int, JsonDict]:
         path = "roomid/{roomId}".format(**payload)
         user_id = requester.user.to_string()[1:]  # w/o leading 0;
-        _uriHash, final_url = self._gen_uri(
+        targetHash, acter_uri, final_url = self._gen_uri(
             user_id=user_id, path=path, query=payload.get('query'))
 
+        qrcode = self._generate_qrcode(acter_uri)
+        self._generate_template(targetHash,
+                                url=final_url,
+                                acter_uri=acter_uri,
+                                qrcode=qrcode
+                                )
+
         return 200, {
-            'url': final_url
+            'url': final_url,
+            'targetUri': acter_uri,
         }
 
     def _gen_roomAlias(self, requester: Requester, payload: Dict[str, Any]) -> Tuple[int, JsonDict]:
         path = "r/{roomAlias}".format(**payload)
         user_id = requester.user.to_string()[1:]  # w/o leading 0;
-        _uriHash, final_url = self._gen_uri(
+        targetHash, acter_uri, final_url = self._gen_uri(
             user_id=user_id, path=path, query=payload.get('query'))
 
+        qrcode = self._generate_qrcode(acter_uri)
+        self._generate_template(targetHash,
+                                url=final_url,
+                                acter_uri=acter_uri,
+                                qrcode=qrcode
+                                )
+
         return 200, {
-            'url': final_url
+            'url': final_url,
+            'targetUri': acter_uri,
         }
 
     def _gen_userId(self, requester: Requester, payload: Dict[str, Any]) -> Tuple[int, JsonDict]:
         path = "u/{userId}".format(**payload)
         user_id = requester.user.to_string()[1:]  # w/o leading 0;
-        _uriHash, final_url = self._gen_uri(
+        targetHash, acter_uri, final_url = self._gen_uri(
             user_id=user_id, path=path, query=payload.get('query'))
 
+        qrcode = self._generate_qrcode(acter_uri)
+        self._generate_template(targetHash,
+                                url=final_url,
+                                acter_uri=acter_uri,
+                                qrcode=qrcode
+                                )
+
         return 200, {
-            'url': final_url
+            'url': final_url,
+            'targetUri': acter_uri,
         }
 
     async def _async_render_PUT(self, request: SynapseRequest) -> Tuple[int, JsonDict]:

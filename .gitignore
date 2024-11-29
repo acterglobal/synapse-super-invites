@@ -9,3 +9,4 @@ __pycache__
 build/
 tests/.local/
 homeserver.log
+tmp-data/

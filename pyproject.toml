@@ -16,7 +16,10 @@ dependencies = [
   "matrix-synapse",
   "sqlalchemy",
   "alembic",
-  "attrs"
+  "attrs",
+  'Jinja2',
+  "qrcode[pil]",
+  "Pillow",
 ]
 
 [project.optional-dependencies]
