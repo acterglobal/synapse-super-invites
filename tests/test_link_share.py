@@ -6,13 +6,13 @@ from matrix_synapse_testutils.unittest import override_config
 from tempfile import TemporaryDirectory
 # type: ignore[attr-defined]
 from synapse.types import Dict, Any, Tuple, JsonDict, Requester
+from urllib.parse import urlencode
 
 import hashlib
 import atexit
 import os
 
 test_dir = TemporaryDirectory()
-# os.path.join(os.getcwd(), 'tmp-data')  # test_dir.name
 target_dir = test_dir.name
 URL_PREFIX = "https://app.example.com/p/"
 
@@ -36,15 +36,13 @@ TEST_CONFIG = {
 
 class ShareLinkTests(SuperInviteHomeserverTestCase):
 
-    def make_target_uri(self, path: str, user_id='', query='') -> str:
-        return self.make_hash_and_uri(path, user_id=user_id, query=query)[1]
-
-    def make_hash_and_uri(self, path: str, user_id='', query='') -> Tuple[str, str]:
+    def make_hash_and_uri(self, path: str, user_id: str, query: Dict[str, Any] | None = None) -> Tuple[str, str]:
         if user_id[0] == '@':
             user_id = user_id[1:]  # remove leading `@`
+        query = query or {}
+        query["userId"] = user_id
         uriFormatter = "{uriPrefix}{hash}?{query}#{path}"
-        q = '{query}&userId={userId}'.format(query=query, userId=user_id) if len(
-            query) != 0 else 'userId={userId}'.format(userId=user_id)
+        q = urlencode(query)
         targetHash = hashlib.sha1(
             uriFormatter.format(
                 uriPrefix=URL_PREFIX,
@@ -66,7 +64,7 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
         for ext in ['.html']:  # , 'png', 'json']:
             target_file = os.path.join(
                 directory, '{b}{ext}'.format(b=baseName, ext=ext))
-            print(target_file)
+            # print(target_file)
             self.assertTrue(os.path.exists(target_file),
                             '{ext} File {f} not found'.format(f=target_file, ext=ext))
 
@@ -175,13 +173,22 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
                 "type": "spaceObject",
                 "objectId": "objectId",
                 "objectType": "pin",
-                "roomId": "roomId",
-                "query": 'roomDisplayName=My+cool+space&title=Pin+Title'
+                "roomId": "roomId:example.org",
+                "query": {
+                    "roomDisplayName": "My cool space",
+                    "userDisplayName": "Ben",
+                    "title": "Pin Title",
+                },
             },
         )
 
         targetHash, targetUri = self.make_hash_and_uri(
-            "o/roomId/pin/objectId", user_id=m_id, query='roomDisplayName=My+cool+space&title=Pin+Title',)
+            "o/roomId:example.org/pin/objectId", user_id=m_id,
+            query={
+                "roomDisplayName": "My cool space",
+                "userDisplayName": "Ben",
+                "title": "Pin Title",
+            },)
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["url"], targetUri)
 
@@ -200,12 +207,15 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
                 "objectId": "objectId",
                 "objectType": "pin",
                 "roomId": "roomId",
-                "query": 'via=acer.global&via=matrix.org'
-            },
+                "query": {
+                    "via": ["acer.global", "matrix.org"]
+                }, },
         )
 
         targetHash, targetUri = self.make_hash_and_uri(
-            "o/roomId/pin/objectId", user_id=m_id, query='via=acer.global&via=matrix.org',)
+            "o/roomId/pin/objectId", user_id=m_id, query={
+                "via": ["acer.global", "matrix.org"]
+            },)
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["url"], targetUri)
 
@@ -224,12 +234,17 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
                 "objectId": "objectId",
                 "objectType": "pin",
                 "roomId": "roomId",
-                "query": 'roomDisplayName=test+room&userId=otherId:example.org'
-            },
+                "query": {
+                    "roomDisplayName": "test room",
+                    "userId": "otherId:example.org",
+                }, },
         )
 
         targetHash, targetUri = self.make_hash_and_uri(
-            "o/roomId/pin/objectId", user_id=m_id, query='roomDisplayName=test+room')
+            "o/roomId/pin/objectId", user_id=m_id, query={
+                "roomDisplayName": "test room",
+                "userId": "otherId:example.org",
+            })
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["url"], targetUri)
 
@@ -241,12 +256,18 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
                 "objectId": "objectId",
                 "objectType": "pin",
                 "roomId": "roomId",
-                "query": 'userId=notallowed:example.org&roomDisplayName=test+room'
+                "query": {
+                    "userId": "notallowed:example.org",
+                    "roomDisplayName": "test room",
+                },
             },
         )
 
         targetHash, targetUri = self.make_hash_and_uri(
-            "o/roomId/pin/objectId", user_id=m_id, query='roomDisplayName=test+room')
+            "o/roomId/pin/objectId", user_id=m_id, query={
+                "userId": "notallowed:example.org",
+                "roomDisplayName": "test room",
+            })
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["url"], targetUri)
 
@@ -258,12 +279,20 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
                 "objectId": "objectId",
                 "objectType": "pin",
                 "roomId": "roomId",
-                "query": 'userId=notallowed:example.org&roomDisplayName=test+room&userId=nope:example.org'
+                "query": {
+                    "userId": "notallowed:example.org",
+                    "roomDisplayName": "test room",
+                    "userId": "nope:example.org",
+                },
             },
         )
 
         targetHash, targetUri = self.make_hash_and_uri(
-            "o/roomId/pin/objectId", user_id=m_id, query='roomDisplayName=test+room')
+            "o/roomId/pin/objectId", user_id=m_id, query={
+                "userId": "notallowed:example.org",
+                "roomDisplayName": "test room",
+                "userId": "nope:example.org",
+            })
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["url"], targetUri)
 
@@ -281,12 +310,18 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
                 "type": "superInvite",
                 "inviteCode": "superInviteCode",
                 "server": "acter.global",
-                "query": "userDisplayName=superBen&rooms=4"
+                "query": {
+                    "userDisplayName": "superBen",
+                    "rooms": 4
+                }
             },
         )
 
         targetHash, targetUri = self.make_hash_and_uri(
-            "i/acter.global/superInviteCode", user_id=m_id, query="userDisplayName=superBen&rooms=4")
+            "i/acter.global/superInviteCode", user_id=m_id, query={
+                "userDisplayName": "superBen",
+                "rooms": 4
+            })
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["url"], targetUri)
 
@@ -303,12 +338,18 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
             content={
                 "type": "roomId",
                 "roomId": "room:acter.global",
-                "query": "roomDisplayName=super+room&via=acter.global"
+                "query": {
+                    "roomDisplayName": "super room",
+                    "via": "acter.global"
+                }
             },
         )
 
         targetHash, targetUri = self.make_hash_and_uri(
-            "roomid/room:acter.global", user_id=m_id, query="roomDisplayName=super+room&via=acter.global")
+            "roomid/room:acter.global", user_id=m_id, query={
+                "roomDisplayName": "super room",
+                "via": "acter.global"
+            })
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["url"], targetUri)
 
@@ -325,19 +366,25 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
             content={
                 "type": "roomAlias",
                 "roomAlias": "roomalias:acter.global",
-                "query": "roomDisplayName=super+room&via=acter.global"
+                "query": {
+                    "roomDisplayName": "super room",
+                    "via": "acter.global"
+                }
             },
         )
 
         targetHash, targetUri = self.make_hash_and_uri(
-            "r/roomalias:acter.global", user_id=m_id, query="roomDisplayName=super+room&via=acter.global")
+            "r/roomalias:acter.global", user_id=m_id, query={
+                "roomDisplayName": "super room",
+                "via": "acter.global"
+            })
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["url"], targetUri)
 
         self.ensureTargetFiles(targetHash)
 
     @ override_config(TEST_CONFIG)  # type: ignore[misc]
-    def test_roomalias_with_preview_data(self) -> None:
+    def test_userId_with_preview_data(self) -> None:
         m_id = self.register_user("meeko", "password")
         m_access_token = self.login("meeko", "password")
 
@@ -347,12 +394,18 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
             content={
                 "type": "userId",
                 "userId": "alice:acter.global",
-                "query": "userDisplayName=Alice&via=acter.global"
+                "query": {
+                    "userDisplayName": "Alice",
+                    "via": "acter.global"
+                }
             },
         )
 
         targetHash, targetUri = self.make_hash_and_uri(
-            "u/alice:acter.global", user_id=m_id, query="userDisplayName=Alice&via=acter.global")
+            "u/alice:acter.global", user_id=m_id, query={
+                "userDisplayName": "Alice",
+                "via": "acter.global"
+            })
         self.assertEqual(channel.code, 200, msg=channel.result)
         self.assertEqual(channel.json_body["url"], targetUri)
 
