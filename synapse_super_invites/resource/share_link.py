@@ -103,47 +103,89 @@ class ShareLink(DirectServeJsonResource):
         )
 
     def _gen_spaceObject(self, user_id: str, owner_info: ProfileInfo, payload: Dict[str, Any]) -> Tuple[int, JsonDict]:
-        path = "o/{roomId}/{objectType}/{objectId}".format(**payload)
+        query = payload.get('query', None) or {}
+        return self._gen_spaceObjectInner(
+            user_id=user_id,
+            owner_info=owner_info,
+            room_id=payload.get('roomId'),
+            object_type=payload.get('objectType'),
+            object_id=payload.get('objectId'),
+            title=query.get('title', None),
+            via=query.get('via', None),
+            room_display_name=query.get('roomDisplayName'),
+        )
+
+    def _gen_forRefObject(self, user_id: str, owner_info: ProfileInfo, payload: Dict[str, Any]) -> Tuple[int, JsonDict]:
+        # import pdb
+        # pdb.set_trace()
+        preview = payload.get('preview', None) or {}
+        ref = payload.get('ref')
+        # we have to rewrite the type
+        if ref == 'task-list':
+            ref = 'taskList'
+        elif ref == 'calendar-event':
+            ref = "calendarEvent"
+
+        return self._gen_spaceObjectInner(
+            user_id=user_id,
+            owner_info=owner_info,
+            room_id=payload.get('room_id'),
+            object_type=ref,
+            object_id=payload.get('target_id'),
+            title=preview.get('title'),
+            via=payload.get('via', None),
+            room_display_name=preview.get('room_display_name'),
+        )
+
+    def _gen_query(self,
+                   title: str | None = None,
+                   room_display_name: str | None = None,
+                   via: str | list[str] | None = None,
+                   ):
+        query = {}
+        if room_display_name is not None:
+            query["roomDisplayName"] = room_display_name
+        if title is not None:
+            query["title"] = title
+        if via is not None:
+            query["via"] = via
+        return query
+
+    def _gen_spaceObjectInner(self, user_id: str, owner_info: ProfileInfo,
+                              room_id: str, object_type: str, object_id: str,
+                              title: str | None = None,
+                              via: str | list[str] | None = None,
+                              room_display_name: str | None = None
+                              ) -> Tuple[int, JsonDict]:
+        path = "o/{room_id}/{ot}/{id}".format(
+            ot=object_type, room_id=room_id, id=object_id)
+        query = self._gen_query(
+            title=title, room_display_name=room_display_name, via=via)
         targetHash, acter_uri, final_url = self._gen_uri(
-            user_id=user_id, path=path, query=payload.get('query'))
-        url_prefix = self.config.url_prefix
+            user_id=user_id, path=path, query=query)
 
         qrcode = self._generate_qrcode(acter_uri)
-        # og_image_name = self._generate_og_image(targetHash,
-        #                                         acter_uri=acter_uri,)
-        # square_image_name = self._generate_square_image(targetHash,
-        #                                                 acter_uri=acter_uri,)
-        # main_image_full = '{p}{f}'.format(p=url_prefix,
-        #                                   f=og_image_name)
         icon = '📗'
-        objectType = payload.get('objectType', None)
-        if objectType == 'pin':
+        if object_type == 'pin':
             icon = '📌'
-        elif objectType == 'boost':
+        elif object_type == 'boost':
             icon = '🚀'
-        elif objectType == 'calendarEvent':
+        elif object_type == 'calendarEvent':
             icon = '🗓️'
-        elif objectType == 'taskList':
+        elif object_type == 'taskList':
             icon = '📋'
 
-        query_params = payload.get('query', {}) or {}
         params = dict(
             sharerId=user_id,
             url=final_url,
             acter_uri=acter_uri,
             qrcode=qrcode,
             icon=icon,
-            objectId=payload.get('objectId', None),
-            # images=[
-            #     (main_image_full, (1200, 630)),
-            #     ('{p}{f}'.format(p=url_prefix,
-            #                      f=square_image_name), (1200, 1200)),
-            # ],
-            title=query_params.get('title', None),
-            roomId=payload.get('roomId', None),
+            objectId=object_id,
+            title=title,
+            roomId=room_id,
             sharerDisplayName=owner_info.display_name,
-            roomDisplayName=query_params.get(
-                'roomDisplayName', None)
+            roomDisplayName=room_display_name
         )
         self._generate_template(targetHash, params)
 
@@ -262,7 +304,9 @@ class ShareLink(DirectServeJsonResource):
         )
         payload = parse_json_object_from_request(request)
         uri_type = payload.get('type', None)
-        if uri_type == "spaceObject":
+        if uri_type == "ref":
+            return self._gen_forRefObject(user_id, owner_info, payload)
+        elif uri_type == "spaceObject":
             return self._gen_spaceObject(user_id, owner_info, payload)
         elif uri_type == "superInvite":
             return self._gen_superInvite(user_id, owner_info, payload)
