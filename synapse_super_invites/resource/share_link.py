@@ -157,6 +157,12 @@ class ShareLink(DirectServeJsonResource):
                               via: str | list[str] | None = None,
                               room_display_name: str | None = None
                               ) -> Tuple[int, JsonDict]:
+        # cleaning up
+        if room_id.startswith('!'):
+            room_id = room_id[1:]
+        if object_id.startswith('$'):
+            object_id = object_id[1:]
+
         path = "o/{room_id}/{ot}/{id}".format(
             ot=object_type, room_id=room_id, id=object_id)
         query = self._gen_query(

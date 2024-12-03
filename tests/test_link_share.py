@@ -276,7 +276,7 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
 
         self.ensureTargetFiles(targetHash)
 
-    @ override_config(TEST_CONFIG)  # type: ignore[misc]
+    @override_config(TEST_CONFIG)  # type: ignore[misc]
     def test_with_query_via_ref_style(self) -> None:
         m_id = self.register_user("meeko", "password")
         m_access_token = self.login("meeko", "password")
@@ -289,6 +289,32 @@ class ShareLinkTests(SuperInviteHomeserverTestCase):
                 "target_id": "object_id",
                 "ref": "pin",
                 "room_id": "room_id",
+                "via": ["acer.global", "matrix.org"]
+            },
+        )
+
+        targetHash, targetUri = self.make_hash_and_uri(
+            "o/room_id/pin/object_id", user_id=m_id, query={
+                "via": ["acer.global", "matrix.org"]
+            },)
+        self.assertEqual(channel.code, 200, msg=channel.result)
+        self.assertEqual(channel.json_body["url"], targetUri)
+
+        self.ensureTargetFiles(targetHash)
+
+    @override_config(TEST_CONFIG)  # type: ignore[misc]
+    def test_with_ref_cleaned_properly_style(self) -> None:
+        m_id = self.register_user("meeko", "password")
+        m_access_token = self.login("meeko", "password")
+
+        # this is our new backend.
+        channel = self.make_request(
+            "PUT", "/_synapse/client/share_link/", access_token=m_access_token,
+            content={
+                "type": "ref",
+                "target_id": "$object_id",
+                "ref": "pin",
+                "room_id": "!room_id",
                 "via": ["acer.global", "matrix.org"]
             },
         )
