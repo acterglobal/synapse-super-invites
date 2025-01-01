@@ -3,7 +3,6 @@ import hashlib
 from synapse.http.server import (
     DirectServeHtmlResource,
     finish_request,
-    logger,
     set_clickjacking_protection_headers,
     DirectServeJsonResource,
 )
