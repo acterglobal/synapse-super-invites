@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+{% macro inRoomId() -%}
+{% if roomId %}
+{% if roomDisplayName %}
+<h4> in <mark>{{roomDisplayName}} <small>(!{{roomId}})</small></mark> </h4>
+{% else %}
+<h4> in <mark>!{{roomId}}</mark></h4>
+{% endif %}
+{% endif %}
+{%- endmacro %}
+
+<head>
+  <meta charset="utf-8">
+  {% if pageTitle %}
+  <title>{{ pageTitle }}</title>
+  <meta property="og:title" content="{{ pageTitle }}">
+  <meta name="twitter:title" content="{{ pageTitle }}">
+  {% else %}
+  {% if type == 'spaceObject' %}
+  <title>{% if icon %}{{icon}} {% endif %}{{ title }}</title>
+  <meta property="og:title" content="{% if icon %}{{icon}} {% endif %}{{ title }}">
+  <meta name="twitter:title" content="{% if icon %}{{icon}} {% endif %}{{ title }}">
+  {% endif %}
+  {% endif %}
+
+  {% if description %}
+  <meta name="description" content="{{ description }}">
+  <meta property="og:description" content="{{ description }}">
+  {% endif %}
+
+  {% if url %}
+  <meta property="og:url" content="{{ url }}">
+  {% endif %}
+
+  {# statics #}
+  <meta property="og:type" content="website">
+
+  {% if images %}
+  {% for (path, (width, height)) in images %}
+  <meta property="og:image" content="{{ image_url }}">
+  <meta property="og:image:width" content="{{width}}">
+  <meta property="og:image:height" content="{{height}}">
+  {% endfor %}
+  {% else %}
+    <meta property="og:image" content="https://acter.global/content/images/size/w256h256/2024/07/64478a5f3150f0b34959baab_Acter---Logo..png">
+  {% endif %}
+  <style>
+    .centered {
+      text-align: center;
+    }
+  </style>
+
+  <script>
+    // Config
+    const isOpenClass = "modal-is-open";
+    const openingClass = "modal-is-opening";
+    const closingClass = "modal-is-closing";
+    const scrollbarWidthCssVar = "--pico-scrollbar-width";
+    const animationDuration = 400; // ms
+    let visibleModal = null;
+
+    // Toggle modal
+    const toggleModal = (event) => {
+      event.preventDefault();
+      const modal = document.getElementById(event.currentTarget.dataset.target);
+      if (!modal) return;
+      modal && (modal.open ? closeModal(modal) : openModal(modal));
+    };
+
+    // Open modal
+    const openModal = (modal) => {
+      const { documentElement: html } = document;
+      const scrollbarWidth = getScrollbarWidth();
+      if (scrollbarWidth) {
+        html.style.setProperty(scrollbarWidthCssVar, `${scrollbarWidth}px`);
+      }
+      html.classList.add(isOpenClass, openingClass);
+      setTimeout(() => {
+        visibleModal = modal;
+        html.classList.remove(openingClass);
+      }, animationDuration);
+      modal.showModal();
+    };
+
+    // Close modal
+    const closeModal = (modal) => {
+      visibleModal = null;
+      const { documentElement: html } = document;
+      html.classList.add(closingClass);
+      setTimeout(() => {
+        html.classList.remove(closingClass, isOpenClass);
+        html.style.removeProperty(scrollbarWidthCssVar);
+        modal.close();
+      }, animationDuration);
+    };
+
+    // Close with a click outside
+    document.addEventListener("click", (event) => {
+      if (visibleModal === null) return;
+      const modalContent = visibleModal.querySelector("article");
+      const isClickInside = modalContent.contains(event.target);
+      !isClickInside && closeModal(visibleModal);
+    });
+
+    // Close with Esc key
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && visibleModal) {
+        closeModal(visibleModal);
+      }
+    });
+
+    // Get scrollbar width
+    const getScrollbarWidth = () => {
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      return scrollbarWidth;
+    };
+
+    // Is scrollbar visible
+    const isScrollbarVisible = () => {
+      return document.body.scrollHeight > screen.height;
+    };
+
+  </script>
+
+  {% include 'parts/extra_header.html' %}
+</head>
+
+<body>
+
+  <header class="container">
+    <nav>
+      <ul>
+        <li><a class="contrast" href="https://acter.global/"><strong>Acter</strong></a></li>
+      </ul>
+      <ul>
+        <li><a href="https://app-redir.acter.global/">Install</a></li>
+        <li><a href="https://acter.global/help/">Help</a></li>
+      </ul>
+    </nav>
+  </header>
+  <main class="container">
+    <article>
+      <header>
+        <nav>
+          <ul>
+            <li>
+              {% if sharerDisplayName %}
+              <span>shared by <strong>{{sharerDisplayName}}</strong> <small>(@{{sharerId}})</small></span>
+              {% else %}
+              <span>shared by @{{sharerId}}</span>
+              {% endif %}
+            </li>
+          </ul>
+
+          {% if qrcode %}
+          <button class="outline" data-target="qrcode-dialog" onclick="toggleModal(event)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="height: 2em">
+              <rect width="256" height="256" fill="none" />
+              <rect x="48" y="48" width="64" height="64" rx="8" fill="none" stroke="currentColor" stroke-linecap="round"
+                stroke-linejoin="round" stroke-width="16" />
+              <rect x="48" y="144" width="64" height="64" rx="8" fill="none" stroke="currentColor"
+                stroke-linecap="round" stroke-linejoin="round" stroke-width="16" />
+              <rect x="144" y="48" width="64" height="64" rx="8" fill="none" stroke="currentColor"
+                stroke-linecap="round" stroke-linejoin="round" stroke-width="16" />
+              <line x1="144" y1="144" x2="144" y2="176" fill="none" stroke="currentColor" stroke-linecap="round"
+                stroke-linejoin="round" stroke-width="16" />
+              <polyline points="144 208 176 208 176 144" fill="none" stroke="currentColor" stroke-linecap="round"
+                stroke-linejoin="round" stroke-width="16" />
+              <line x1="176" y1="160" x2="208" y2="160" fill="none" stroke="currentColor" stroke-linecap="round"
+                stroke-linejoin="round" stroke-width="16" />
+              <line x1="208" y1="192" x2="208" y2="208" fill="none" stroke="currentColor" stroke-linecap="round"
+                stroke-linejoin="round" stroke-width="16" />
+            </svg>
+          </button>
+          <dialog id="qrcode-dialog">
+            <article>
+              <header>
+                <button aria-label="Close" rel="prev" data-target="qrcode-dialog" onclick="toggleModal(event)"></button>
+              <h3>Scan with your Mobile</h3>
+              </header>
+              <div class="centered"> 
+              {{qrcode | safe}}
+              </div>
+            </article>
+          </dialog>
+          {% endif %}
+        </nav>
+
+
+      </header>
+      {% if title %}
+        <h1>{% if icon %}{{icon}} {% endif %}{{ title }}</h1>
+      {{inRoomId()}}
+      {% elif objectId %}
+        <h1>{% if icon %}{{icon}} {% endif %}{{ objectId }}</h1>
+      {{inRoomId()}}
+      {% elif inviteCode %}
+          <h1>🎟️ {{inviteCode}}</h1>
+          {% if rooms %}
+            <p>Invite for {{rooms}} rooms</p>
+          {% endif %}
+        
+      {% elif roomId %}
+        {% if roomDisplayName %}
+          <h1><mark>#️⃣ {{roomDisplayName}} <small>(!{{roomId}})</small></mark> </h1>
+        {% else %}
+          <h1><mark>!{{roomId}}</mark></h1>
+        {% endif %}
+      {% elif roomAlias %}
+        {% if roomDisplayName %}
+          <h1><mark>#️⃣ {{roomDisplayName}} <small>(#{{roomAlias}})</small></mark> </h1>
+        {% else %}
+          <h1><mark>#{{roomAlias}}</mark></h1>
+        {% endif %}
+      {% elif userId %}
+        {% if userDisplayName %}
+          <h1><mark>👤 {{userDisplayName}} <small>(!{{userId}})</small></mark> </h1>
+        {% else %}
+          <h1><mark>👤 !{{userId}}</mark></h1>
+        {% endif %}
+      {% endif %}
+
+      {% if description %}
+      <p>{{ description }}</p>
+      {% endif %}
+      <footer class="centered">
+        {% if acter_uri %}
+        <p>
+          <a role="button" href="{{ acter_uri }}">
+            Open in Acter
+          </a>
+        </p>
+        {% endif %}
+      </footer>
+    </article>
+    <div class="container centered">
+      <p>
+        <a class="contrast" href="https://app-redir.acter.global/" target="_blank"> install Acter</a>
+      </p>
+    </div>
+  </main>
+</body>
+
+</html>

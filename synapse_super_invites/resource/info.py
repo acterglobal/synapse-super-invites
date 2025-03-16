@@ -4,7 +4,6 @@ from synapse.http.site import SynapseRequest
 from synapse.types import JsonDict, Tuple, UserID  # type: ignore[attr-defined]
 
 from synapse_super_invites.model import Accepted, Token
-
 from .base import SuperInviteResourceBase
 
 

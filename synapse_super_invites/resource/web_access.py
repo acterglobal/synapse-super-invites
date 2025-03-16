@@ -1,12 +1,14 @@
 from synapse.http.server import (
     DirectServeHtmlResource,
     finish_request,
-    logger,
     set_clickjacking_protection_headers,
 )
 from synapse.http.site import SynapseRequest
 from synapse.module_api import ModuleApi
 from synapse.types import Any, Tuple  # type: ignore[attr-defined]
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class WebAccessResource(DirectServeHtmlResource):
@@ -40,8 +42,10 @@ class WebAccessResource(DirectServeHtmlResource):
             )
             return None
 
-        request.setHeader(b"Content-Type", b"text/javascript; charset=utf-8")  # type: ignore[no-untyped-call]
-        request.setHeader(b"Content-Length", b"%d" % (len(js_bytes),))  # type: ignore[no-untyped-call]
+        # type: ignore[no-untyped-call]
+        request.setHeader(b"Content-Type", b"text/javascript; charset=utf-8")
+        request.setHeader(b"Content-Length", b"%d" %
+                          (len(js_bytes),))  # type: ignore[no-untyped-call]
 
         # Ensure this content cannot be embedded.
         set_clickjacking_protection_headers(request)
